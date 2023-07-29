@@ -6,3 +6,6 @@ _generate/
 *.py[cod]
 *.egg-info
 *env*
+.ccls
+.ccls-cache
+compile_commands.json
