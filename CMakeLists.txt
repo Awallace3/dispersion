@@ -37,13 +37,13 @@ if(LINUX)
         /usr/lib
         )
 endif()
+add_subdirectory(pybind11)
 
 find_package(OpenMP REQUIRED)
 
 add_library(disp STATIC src/disp.cpp)
 set_target_properties(disp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-add_subdirectory(pybind11)
 pybind11_add_module(dispersion src/binder.cpp)
 target_link_libraries(dispersion PRIVATE disp)
 

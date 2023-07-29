@@ -132,7 +132,7 @@ setup(
     author_email="austinwallace196@gmail.com",
     description="Dispersion module in C++ for Python",
     long_description="",
-    ext_modules=[CMakeExtension("dispersion")],
+    ext_modules=[CMakeExtension("dispersion"), CMakeExtension("disp")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     extras_require={"test": ["pytest>=6.0"]},
