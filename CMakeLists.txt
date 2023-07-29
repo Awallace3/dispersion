@@ -7,6 +7,10 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fopenmp -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -fopenmp")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+add_subdirectory(pybind11)
+set(pybind11_DIR pybind11)
+find_package(pybind11 REQUIRED)
+
 if(APPLE)
     set(CMAKE_C_COMPILER "gcc")
     set(CMAKE_CXX_COMPILER "g++-12")
@@ -14,12 +18,13 @@ if(APPLE)
         /usr/local/include/eigen3
         /usr/include
         /usr/lib
-        ./extern/pybind11/include
+        pybind11/include
         )
     link_directories(/usr/local/lib
         /usr/local/include/eigen3
         /usr/include
         /usr/lib
+        pybind11/include
         )
 endif()
 if(LINUX)
@@ -29,20 +34,21 @@ if(LINUX)
         /usr/include/eigen3
         /usr/include
         /usr/lib
-        ./extern/pybind11/include
+        pybind11/include
         )
     link_directories(/usr/local/lib
         /usr/include/eigen3
         /usr/include
         /usr/lib
+        pybind11/include
         )
 endif()
-add_subdirectory(pybind11)
 
 find_package(OpenMP REQUIRED)
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pybind11/include /theoryfs2/ds/amwalla3/miniconda3/envs/qcn/include/python3.8)
 add_library(disp STATIC src/disp.cpp)
-set_target_properties(disp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(disp PROPERTIES POSITION_INDEPENDENT_CODE ON INTERFACE pybind11/include)
 
 pybind11_add_module(dispersion src/binder.cpp)
 target_link_libraries(dispersion PRIVATE disp)
