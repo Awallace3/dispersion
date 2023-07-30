@@ -49,10 +49,10 @@ endif()
 find_package(OpenMP REQUIRED)
 
 
-pybind11_add_module(dispersion src/binder.cpp src/disp.cpp)
+pybind11_add_module(dispersion src/binder.cpp src/disp.cpp src/r4r2.cpp)
 # target_link_libraries(dispersion PRIVATE disp)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pybind11/include /theoryfs2/ds/amwalla3/miniconda3/envs/qcn/include/python3.8)
-add_library(disp STATIC src/binder.cpp src/disp.cpp)
+add_library(disp STATIC src/binder.cpp src/disp.cpp src/r4r2.cpp)
 target_include_directories(disp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/pybind11/include /theoryfs2/ds/amwalla3/miniconda3/envs/qcn/include/python3.8)
 # set_target_properties(disp PROPERTIES POSITION_INDEPENDENT_CODE ON INTERFACE pybind11/include)
