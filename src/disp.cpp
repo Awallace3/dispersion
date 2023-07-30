@@ -59,9 +59,7 @@ void np_array_multiply_test(std::vector<std::vector<double>> &v, double &a) {
     int lattice_points = 1;
     double Q_A, Q_B, rrij, r0ij;
     for (int i=0; i<n; i++){
-        r4r2::r4r2_ls
-
     };
-
 }
+
 }

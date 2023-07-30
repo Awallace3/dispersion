@@ -44,10 +44,10 @@ PYBIND11_MODULE(dispersion, m) {
 
         )pbdoc");
 
-    m_d.def("add_arrays", &disp::add_arrays, R"pbdoc(
-        add arrays
-
-        )pbdoc");
+    /* m_d.def("add_arrays", &disp::add_arrays, R"pbdoc( */
+    /*     add arrays */
+    /*  */
+    /*     )pbdoc"); */
 
 
 #ifdef VERSION_INFO
