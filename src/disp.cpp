@@ -51,7 +51,6 @@ void add_arrays_eigen(py::EigenDRef<MatrixXd> v1, py::EigenDRef<MatrixXd> v2){
 
 double disp_2B(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params) {
-  std::cout << "disp_2B" << std::endl;
   int lattice_points = 1;
   double energy = 0;
   int n = pos.size();
