@@ -21,9 +21,8 @@ double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 
 double triple_scale(int i, int j, int k);
 double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                py::EigenDRef<MatrixXd> C6s_ATM,
-                Ref<VectorXd> params);
+                    py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params);
 double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                py::EigenDRef<MatrixXd> C6s_ATM,
-                Ref<VectorXd> params);
+                          py::EigenDRef<MatrixXd> C6s_ATM,
+                          Ref<VectorXd> params);
 } // namespace disp
