@@ -9,3 +9,6 @@ _generate/
 .ccls
 .ccls-cache
 compile_commands.json
+cache
+.clangd
+\.cache

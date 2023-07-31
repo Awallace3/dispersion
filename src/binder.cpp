@@ -2,11 +2,12 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
+#include <pybind11/eigen.h>
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
 
-namespace py = pybind11;
+/* namespace py = pybind11; */
 
 int add(int i, int j) {
     return i + j;
@@ -44,10 +45,12 @@ PYBIND11_MODULE(dispersion, m) {
 
         )pbdoc");
 
-    /* m_d.def("add_arrays", &disp::add_arrays, R"pbdoc( */
-    /*     add arrays */
-    /*  */
-    /*     )pbdoc"); */
+    m_d.def("add_arrays", &disp::add_arrays, R"pbdoc(
+        add arrays
+        )pbdoc");
+    m_d.def("disp_2b", &disp::disp_2b, R"pbdoc(
+        calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
+        )pbdoc");
 
 
 #ifdef VERSION_INFO
