@@ -239,4 +239,29 @@ double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy;
 };
 
+double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                     py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                     py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_ATM_A,
+                     Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
+                     py::EigenDRef<MatrixXd> C6s_ATM_B, Ref<VectorXd> params) {
+  double d, a, b;
+  d = disp_ATM_CHG(pos, carts, C6s_ATM, params);
+  a = disp_ATM_CHG(pA, cA, C6s_ATM_A, params);
+  b = disp_ATM_CHG(pB, cB, C6s_ATM_B, params);
+  return d - a - b;
+};
+
+double
+disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                   py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C6s_ATM,
+                   Ref<VectorXi> pA, py::EigenDRef<MatrixXd> cA,
+                   py::EigenDRef<MatrixXd> C6s_A,
+                   py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                   py::EigenDRef<MatrixXd> cB, py::EigenDRef<MatrixXd> C6s_B,
+                   py::EigenDRef<MatrixXd> C6s_ATM_B, Ref<VectorXd> params) {
+  double energy = 0;
+  energy += disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params);
+  energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB, C6s_ATM_B, params);
+  return energy;
+};
 } // namespace disp
