@@ -50,7 +50,12 @@ PYBIND11_MODULE(dispersion, m) {
         )pbdoc",
           py::arg("input1"), py::arg("input2"));
 
-  m_d.def("disp_2B", &disp::disp_ATM_CHG, R"pbdoc(
+  m_d.def("add_arrays_eigen", &disp::add_arrays_eigen, R"pbdoc(
+        add arrays
+        )pbdoc",
+          py::arg("input1"), py::arg("input2"));
+
+  m_d.def("disp_2B", &disp::disp_2B, R"pbdoc(
         calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
         )pbdoc",
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("params"));
