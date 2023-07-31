@@ -183,7 +183,7 @@ double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   /* int lattice_points = 1; */
   double energy = 0;
   int n = pos.size();
-  double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r2, r3, r5, dis_ij, dis_jk,
+  double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
       dis_ik, triple, c9, fdmp, ang; // private
   int el1, el2, el3, i, j, k;        // private
   double a1, a2, s9, alph = 16.0;    // public
@@ -196,8 +196,9 @@ double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 #pragma omp parallel for shared(                                               \
         C6s_ATM, carts, params, pos, a1, a2, s9,                               \
             alph) private(el1, el2, el3, i, j, k, Q_A, Q_B, Q_C, r0ij, r0ik,   \
-                              r0jk, r0, r2, r3, r5, dis_ij, dis_jk, dis_ik,    \
-                              triple, c9, fdmp, ang) reduction(+ : energy)
+                              r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,        \
+                              dis_ik, triple, c9, fdmp, ang)                   \
+    reduction(+ : energy)
   for (i = 0; i < n; i++) {
     el1 = pos[i];
     Q_A = pow(0.5 * pow(el1, 0.5) * r4r2::r4r2_ls[el1 - 1], 0.5);
@@ -224,11 +225,13 @@ double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                  (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
         r2 = dis_ij * dis_ik * dis_jk;
         if (r2 < 1e-8) {
+          std::cout << "r2 too small" << std::endl;
           continue;
         };
-        r3 = r2 * pow(r2, 0.5);
+        r1 = pow(r2, 0.5);
+        r3 = r2 * r1;
         r5 = r3 * r2;
-        fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r3, alph / 3.0));
+        fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0));
         ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
                    (-dis_ij + dis_jk + dis_ik) / r5 +
                1.0 / r3);
@@ -240,10 +243,12 @@ double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 };
 
 double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                     py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
-                     py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_ATM_A,
-                     Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
-                     py::EigenDRef<MatrixXd> C6s_ATM_B, Ref<VectorXd> params) {
+                          py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                          py::EigenDRef<MatrixXd> cA,
+                          py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                          py::EigenDRef<MatrixXd> cB,
+                          py::EigenDRef<MatrixXd> C6s_ATM_B,
+                          Ref<VectorXd> params) {
   double d, a, b;
   d = disp_ATM_CHG(pos, carts, C6s_ATM, params);
   a = disp_ATM_CHG(pA, cA, C6s_ATM_A, params);
@@ -260,8 +265,10 @@ disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                    py::EigenDRef<MatrixXd> cB, py::EigenDRef<MatrixXd> C6s_B,
                    py::EigenDRef<MatrixXd> C6s_ATM_B, Ref<VectorXd> params) {
   double energy = 0;
-  energy += disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params);
-  energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB, C6s_ATM_B, params);
+  energy +=
+      disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params);
+  energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
+                               C6s_ATM_B, params);
   return energy;
 };
 } // namespace disp

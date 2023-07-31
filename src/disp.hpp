@@ -12,7 +12,7 @@ void np_array_multiply_test(std::vector<std::vector<double>> &, double &);
 pybind11::array_t<double> add_arrays(pybind11::array_t<double> input1,
                                      pybind11::array_t<double> input2);
 double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-               py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params);
+                    py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params);
 double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                      py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
                      py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,
@@ -22,6 +22,14 @@ double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 double triple_scale(int i, int j, int k);
 double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                     py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params);
+
+double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                          py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                          py::EigenDRef<MatrixXd> cA,
+                          py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                          py::EigenDRef<MatrixXd> cB,
+                          py::EigenDRef<MatrixXd> C6s_ATM_B,
+                          Ref<VectorXd> params);
 double
 disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                    py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C6s_ATM,
