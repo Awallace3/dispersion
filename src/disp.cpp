@@ -44,7 +44,7 @@ pybind11::array_t<double> add_arrays(pybind11::array_t<double> input1,
   return result;
 };
 
-double disp_2b(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+double disp_2B(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params) {
   int lattice_points = 1;
   double energy = 0;
@@ -56,6 +56,9 @@ double disp_2b(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   s8 = params[1];
   a1 = params[2];
   a2 = params[3];
+#pragma omp parallel for shared(C6s, carts, params, pos) private(              \
+        i, j, k, el1, el2, Q_A, Q_B, rrij, r0ij, dis, t6, t8, de)              \
+    reduction(+ : energy)
   for (i = 0; i < n; i++) {
     el1 = pos[i];
     Q_A = pow(0.5 * pow(el1, 0.5) * r4r2::r4r2_ls[el1 - 1], 0.5);
@@ -81,4 +84,25 @@ double disp_2b(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   };
   return energy *= 2;
 };
+
+double disp_2B_dimer(Ref<VectorXi> pos,
+                   py::EigenDRef<MatrixXd> carts,
+                   py::EigenDRef<MatrixXd> C6s,
+                   Ref<VectorXi> pA,
+                   py::EigenDRef<MatrixXd> cA,
+                   py::EigenDRef<MatrixXd> C6s_A,
+                   Ref<VectorXi> pB,
+                   py::EigenDRef<MatrixXd> cB,
+                   py::EigenDRef<MatrixXd> C6s_B,
+                   Ref<VectorXd> params){
+    double d, a, b;
+    d = disp_2B(pos, carts, C6s, params);
+    a = disp_2B(pA, cA, C6s_A, params);
+    b = disp_2B(pB, cB, C6s_B, params);
+    return d - a - b;
+};
+
+
+
 } // namespace disp
+

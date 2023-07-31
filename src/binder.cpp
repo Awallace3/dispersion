@@ -48,8 +48,12 @@ PYBIND11_MODULE(dispersion, m) {
     m_d.def("add_arrays", &disp::add_arrays, R"pbdoc(
         add arrays
         )pbdoc");
-    m_d.def("disp_2b", &disp::disp_2b, R"pbdoc(
+    m_d.def("disp_2B", &disp::disp_2B, R"pbdoc(
         calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
+        )pbdoc");
+    m_d.def("disp_2B_dimer", &disp::disp_2B_dimer, R"pbdoc(
+        calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
+        for a dimer broken into two monomers
         )pbdoc");
 
 
