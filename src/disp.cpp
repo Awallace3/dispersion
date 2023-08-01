@@ -2,6 +2,7 @@
 #include "r4r2.hpp"
 #include <eigen3/Eigen/Dense>
 #include <iostream>
+#include <omp.h>
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -44,9 +45,8 @@ pybind11::array_t<double> add_arrays(pybind11::array_t<double> input1,
   return result;
 };
 
-
-void add_arrays_eigen(py::EigenDRef<MatrixXd> v1, py::EigenDRef<MatrixXd> v2){
-    v1 += v2;
+void add_arrays_eigen(py::EigenDRef<MatrixXd> v1, py::EigenDRef<MatrixXd> v2) {
+  v1 += v2;
 };
 
 double disp_2B(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
@@ -275,10 +275,10 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   energy +=
       disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
 
-  if (params_ATM.size() == 4 && params_ATM[4] != 0.0){
-      // checking to see if ATM is disabled
-      energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
-                                   C6s_ATM_B, params_ATM);
+  if (params_ATM.size() >= 4 && params_ATM[4] != 0.0) {
+    // checking to see if ATM is disabled
+    energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
+                                 C6s_ATM_B, params_ATM);
   }
   return energy;
 };
