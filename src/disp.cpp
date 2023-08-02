@@ -275,7 +275,7 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   energy +=
       disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
 
-  if (params_ATM.size() >= 4 && params_ATM[4] != 0.0) {
+  if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
     // checking to see if ATM is disabled
     energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
                                  C6s_ATM_B, params_ATM);
