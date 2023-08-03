@@ -102,71 +102,6 @@ double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return d - a - b;
 };
 
-/*
-for i in range(M_tot):
-    el1 = int(pos[i])
-    Q_A = (0.5 * el1**0.5 * r4r2_ls[el1 - 1]) ** 0.5
-    for j in range(i + 1):
-        el2 = int(pos[j])
-        Q_B = (0.5 * el2**0.5 * r4r2_ls[el2 - 1]) ** 0.5
-        c6ij = C6s_ATM[i, j]
-        r0ij = a1 * np.sqrt(3 * Q_A * Q_B) + a2
-        ri, rj = carts[i, :], carts[j, :]
-        r2ij = np.subtract(ri, rj)
-        r2ij = np.sum(np.multiply(r2ij, r2ij))
-        if np.all(r2ij < 1e-8):
-            continue
-        for k in range(j + 1):
-            el3 = int(pos[k])
-            Q_C = (0.5 * el3**0.5 * r4r2_ls[el3 - 1]) ** 0.5
-            c6ik = C6s_ATM[i, k]
-            c6jk = C6s_ATM[j, k]
-            c9 = -s9 * np.sqrt(np.abs(c6ij * c6ik * c6jk))
-            r0ik = a1 * np.sqrt(3 * Q_C * Q_A) + a2
-            r0jk = a1 * np.sqrt(3 * Q_C * Q_B) + a2
-            r0 = r0ij * r0ik * r0jk
-            triple = triple_scale(i, j, k)
-            for ktr in range(lattice_points):
-                rk = carts[k, :]
-                r2ik = np.subtract(ri, rk)
-                r2ik = np.sum(np.multiply(r2ik, r2ik))
-                if np.all(r2ik < 1e-8):
-                    continue
-                r2jk = np.subtract(rj, rk)
-                r2jk = np.sum(np.multiply(r2jk, r2jk))
-                if np.all(r2jk < 1e-8):
-                    continue
-                r2 = r2ij * r2ik * r2jk
-                r1 = np.sqrt(r2)
-                r3 = r2 * r1
-                r5 = r3 * r2
-
-                fdmp = 1.0 / (1.0 + 6.0 * (r0 / r1) ** (alp / 3.0))
-
-                ang = (
-                    0.375
-                    * (r2ij + r2jk - r2ik)
-                    * (r2ij - r2jk + r2ik)
-                    * (-r2ij + r2jk + r2ik)
-                    / r5
-                    + 1.0 / r3
-                )
-
-                rr = ang * fdmp
-
-                dE = rr * c9 * triple / 6
-                e_ATM -= dE
-                energies[j, i] -= dE
-                energies[k, i] -= dE
-                energies[i, j] -= dE
-                energies[k, j] -= dE
-                energies[i, k] -= dE
-                energies[j, k] -= dE
-energy = np.sum(energies)
-if not ATM_only:
-    energy += e_two_body_disp
- */
-
 double triple_scale(int i, int j, int k) {
   if (i == j) {
     if (i == k) {
@@ -181,6 +116,140 @@ double triple_scale(int i, int j, int k) {
       return 0.5;
     };
   };
+};
+
+void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                 py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params,
+                 Ref<VectorXd> eABC) {
+  int n = pos.size();
+  double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
+      dis_ik, triple, c9, fdmp, ang; // private
+  int el1, el2, el3, i, j, k, c;        // private
+  double a1, a2, s9, alph = 16.0;    // public
+  // size(eABC) = np.zeros((int(N * (N - 1) * (N - 2) / 6), 4))
+
+  /* s6 = params[0]; */
+  /* s8 = params[1]; */
+  a1 = params[2];
+  a2 = params[3];
+  s9 = params[4];
+#pragma omp parallel for shared(                                               \
+        C6s_ATM, carts, params, pos, a1, a2, s9,                               \
+            alph) private(el1, el2, el3, i, j, k, Q_A, Q_B, Q_C, r0ij, r0ik,   \
+                              r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,        \
+                              dis_ik, triple, c9, fdmp, ang, c)
+
+  for (i = 0; i < n; i++) {
+    el1 = pos[i];
+    Q_A = pow(0.5 * pow(el1, 0.5) * r4r2::r4r2_ls[el1 - 1], 0.5);
+    for (j = 0; j < i; j++) {
+      el2 = pos[j];
+      Q_B = pow(0.5 * pow(el2, 0.5) * r4r2::r4r2_ls[el2 - 1], 0.5);
+      r0ij = a1 * pow(3 * Q_A * Q_B, 0.5) + a2;
+      dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+               (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+      for (k = 0; k < j; k++) {
+        el3 = pos[k];
+        Q_C = pow(0.5 * pow(el3, 0.5) * r4r2::r4r2_ls[el3 - 1], 0.5);
+        c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
+        r0ik = a1 * pow(3 * Q_A * Q_C, 0.5) + a2;
+        r0jk = a1 * pow(3 * Q_B * Q_C, 0.5) + a2;
+        r0 = r0ij * r0ik * r0jk;
+        triple = triple_scale(i, j, k);
+        dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
+                 (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
+                 (carts(i, 2) - carts(k, 2)) * (carts(i, 2) - carts(k, 2));
+        dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
+                 (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
+                 (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
+        r2 = dis_ij * dis_ik * dis_jk;
+        if (r2 < 1e-8) {
+          std::cout << "r2 too small" << std::endl;
+          continue;
+        };
+        r1 = pow(r2, 0.5);
+        r3 = r2 * r1;
+        r5 = r3 * r2;
+        // TODO: modify fdmp
+        fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0));
+
+        ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
+                   (-dis_ij + dis_jk + dis_ik) / r5 +
+               1.0 / r3);
+
+        c = (i * (i - 1) * (i - 2) / 6 + j * (j - 1) / 2 + k);
+        /* std::cout << i << " " << j << " " << k << " " << c << std::endl; */
+        eABC[c] = 6 * (ang * c9 * triple / 6.0);
+      };
+    };
+  };
+};
+
+double disp_ATM_2(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                  py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params) {
+  /* int lattice_points = 1; */
+  double energy = 0;
+  int n = pos.size();
+  double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
+      dis_ik, triple, c9, fdmp, ang; // private
+  int el1, el2, el3, i, j, k;        // private
+  double a1, a2, s9, alph = 16.0;    // public
+
+  /* s6 = params[0]; */
+  /* s8 = params[1]; */
+  a1 = params[2];
+  a2 = params[3];
+  s9 = params[4];
+#pragma omp parallel for shared(                                               \
+        C6s_ATM, carts, params, pos, a1, a2, s9,                               \
+            alph) private(el1, el2, el3, i, j, k, Q_A, Q_B, Q_C, r0ij, r0ik,   \
+                              r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,        \
+                              dis_ik, triple, c9, fdmp, ang)                   \
+    reduction(+ : energy)
+  for (i = 0; i < n; i++) {
+    el1 = pos[i];
+    Q_A = pow(0.5 * pow(el1, 0.5) * r4r2::r4r2_ls[el1 - 1], 0.5);
+    for (j = 0; j < i; j++) {
+      el2 = pos[j];
+      Q_B = pow(0.5 * pow(el2, 0.5) * r4r2::r4r2_ls[el2 - 1], 0.5);
+      r0ij = a1 * pow(3 * Q_A * Q_B, 0.5) + a2;
+      dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+               (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+      for (k = 0; k < j; k++) {
+        el3 = pos[k];
+        Q_C = pow(0.5 * pow(el3, 0.5) * r4r2::r4r2_ls[el3 - 1], 0.5);
+        c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
+        r0ik = a1 * pow(3 * Q_A * Q_C, 0.5) + a2;
+        r0jk = a1 * pow(3 * Q_B * Q_C, 0.5) + a2;
+        r0 = r0ij * r0ik * r0jk;
+        triple = triple_scale(i, j, k);
+        dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
+                 (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
+                 (carts(i, 2) - carts(k, 2)) * (carts(i, 2) - carts(k, 2));
+        dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
+                 (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
+                 (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
+        r2 = dis_ij * dis_ik * dis_jk;
+        if (r2 < 1e-8) {
+          std::cout << "r2 too small" << std::endl;
+          continue;
+        };
+        r1 = pow(r2, 0.5);
+        r3 = r2 * r1;
+        r5 = r3 * r2;
+        // TODO: modify fdmp
+        fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0));
+
+        ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
+                   (-dis_ij + dis_jk + dis_ik) / r5 +
+               1.0 / r3);
+        energy -= 6 * (ang * fdmp * c9 * triple / 6.0);
+      };
+    };
+  };
+  return energy;
 };
 
 double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,

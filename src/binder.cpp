@@ -1,9 +1,9 @@
 #include "disp.hpp"
+#include <omp.h>
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <omp.h>
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
@@ -13,15 +13,14 @@ namespace py = pybind11;
 int add(int i, int j) { return i + j; }
 
 int sum_thread_ids() {
-    int sum=0;
-    #pragma omp parallel shared(sum)
-    {
-        #pragma omp critical
-        sum += omp_get_thread_num();
-    }
-    return sum;
+  int sum = 0;
+#pragma omp parallel shared(sum)
+  {
+#pragma omp critical
+    sum += omp_get_thread_num();
+  }
+  return sum;
 }
-
 
 PYBIND11_MODULE(dispersion, m) {
   m.doc() = R"pbdoc(
@@ -57,7 +56,6 @@ PYBIND11_MODULE(dispersion, m) {
         Sum thread ids
     )pbdoc");
 
-
   auto m_d = m.def_submodule("disp", "dispersion submodule");
   m_d.def("np_array_sum_test", &disp::np_array_sum_test, R"pbdoc(
         Add all number in a np.array
@@ -70,7 +68,6 @@ PYBIND11_MODULE(dispersion, m) {
 
         )pbdoc",
           py::arg("v"), py::arg("n"));
-
 
   m_d.def("add_arrays", &disp::add_arrays, R"pbdoc(
         add arrays
@@ -94,6 +91,13 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("pA"),
           py::arg("cA"), py::arg("C6s_A"), py::arg("pB"), py::arg("cB"),
           py::arg("C6s_B"), py::arg("params"));
+
+  m_d.def("vals_for_SR", &disp::vals_for_SR, R"pbdoc(
+        calculate values for SR
+        size(eABC) = np.zeros((int(N * (N - 1) * (N - 2) / 6), 4))
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("params"),
+          py::arg("eABC"));
 
   m_d.def("disp_ATM_CHG", &disp::disp_ATM_CHG, R"pbdoc(
         calculate -D4 ATM Chair and Head-Gordon (CHG) damping dispersion
