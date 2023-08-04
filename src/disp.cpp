@@ -120,16 +120,14 @@ double triple_scale(int i, int j, int k) {
 
 void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                  py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params,
-                 Ref<VectorXd> eABC) {
+                 py::EigenDRef<MatrixXd> vals) {
   int n = pos.size();
   double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
       dis_ik, triple, c9, fdmp, ang; // private
   int el1, el2, el3, i, j, k, c;        // private
   double a1, a2, s9, alph = 16.0;    // public
-  // size(eABC) = np.zeros((int(N * (N - 1) * (N - 2) / 6), 4))
+  // size(eABC) = np.zeros((int(N * (N - 1) * (N - 2) / 6), 6))
 
-  /* s6 = params[0]; */
-  /* s8 = params[1]; */
   a1 = params[2];
   a2 = params[3];
   s9 = params[4];
@@ -180,7 +178,11 @@ void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 
         c = (i * (i - 1) * (i - 2) / 6 + j * (j - 1) / 2 + k);
         /* std::cout << i << " " << j << " " << k << " " << c << std::endl; */
-        eABC[c] = 6 * (ang * c9 * triple / 6.0);
+        vals(c, 1) = 6 * (ang * c9 * triple / 6.0);
+        vals(c, 2) = r0;
+        vals(c, 3) = r1;
+        vals(c, 4) = r2;
+        vals(c, 5) = alph;
       };
     };
   };
