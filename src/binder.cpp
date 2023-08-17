@@ -99,6 +99,14 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("params"),
           py::arg("vals"));
 
+  m_d.def("SR_testing", &disp::SR_testing, R"pbdoc(
+        Evaluate SR values
+        NOTE: dynamically chaning with change of vals_for_SR
+
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("params"),
+          py::arg("vals"));
+
   m_d.def("disp_ATM_CHG", &disp::disp_ATM_CHG, R"pbdoc(
         calculate -D4 ATM Chair and Head-Gordon (CHG) damping dispersion
         )pbdoc",
@@ -118,6 +126,14 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pA"), py::arg("cA"), py::arg("C6s_A"), py::arg("C6s_ATM_A"),
           py::arg("pB"), py::arg("cB"), py::arg("C6s_B"), py::arg("C6s_ATM_B"),
           py::arg("params_2B"), py::arg("params_ATM"));
+
+  m_d.def("disp_2B_BJ_ATM_SR", &disp::disp_2B_BJ_ATM_SR, R"pbdoc(
+        calculate -D4 2Body (BJ) ATM (CHG) damping dispersion
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C6s_ATM"),
+          py::arg("pA"), py::arg("cA"), py::arg("C6s_A"), py::arg("C6s_ATM_A"),
+          py::arg("pB"), py::arg("cB"), py::arg("C6s_B"), py::arg("C6s_ATM_B"),
+          py::arg("params_2B"), py::arg("params_ATM"), py::arg("vals"));
 
 #ifdef VERSION_INFO
   m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);

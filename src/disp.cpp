@@ -123,9 +123,9 @@ void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                  py::EigenDRef<MatrixXd> vals) {
   int n = pos.size();
   double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
-      dis_ik, triple, c9, fdmp, ang; // private
-  int el1, el2, el3, i, j, k, c;        // private
-  double a1, a2, s9, alph = 16.0;    // public
+      dis_ik, triple, c9, ang;    // private
+  int el1, el2, el3, i, j, k, c;  // private
+  double a1, a2, s9, alph = 16.0; // public
   // size(eABC) = np.zeros((int(N * (N - 1) * (N - 2) / 6), 6))
 
   a1 = params[2];
@@ -135,7 +135,7 @@ void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         C6s_ATM, carts, params, pos, a1, a2, s9,                               \
             alph) private(el1, el2, el3, i, j, k, Q_A, Q_B, Q_C, r0ij, r0ik,   \
                               r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,        \
-                              dis_ik, triple, c9, fdmp, ang, c)
+                              dis_ik, triple, c9, ang, c)
 
   for (i = 0; i < n; i++) {
     el1 = pos[i];
@@ -170,7 +170,7 @@ void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         r3 = r2 * r1;
         r5 = r3 * r2;
         // TODO: modify fdmp
-        fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0));
+        /* fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0)); */
 
         ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
                    (-dis_ij + dis_jk + dis_ik) / r5 +
@@ -178,14 +178,90 @@ void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 
         c = (i * (i - 1) * (i - 2) / 6 + j * (j - 1) / 2 + k);
         /* std::cout << i << " " << j << " " << k << " " << c << std::endl; */
-        vals(c, 1) = 6 * (ang * c9 * triple / 6.0);
-        vals(c, 2) = r0;
-        vals(c, 3) = r1;
-        vals(c, 4) = r2;
-        vals(c, 5) = alph;
+        vals(c, 0) = 6 * (ang * c9 * triple / 6.0);
+        vals(c, 1) = r0;
+        vals(c, 2) = r1;
+        vals(c, 3) = r2;
+        vals(c, 4) = alph;
       };
     };
   };
+};
+
+double SR_testing(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                  py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params,
+                  py::EigenDRef<MatrixXd> vals) {
+  int n = pos.size();
+  double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
+      dis_ik, triple, c9, ang;    // private
+  int el1, el2, el3, i, j, k;     // private
+  double a1, a2, s9, alph = 16.0; // public
+                                  //
+  double energy, x1, x2, x3, x4, x5, x6;
+  energy = 0;
+
+  a1 = params[2];
+  a2 = params[3];
+  s9 = params[4];
+#pragma omp parallel for shared(                                               \
+        C6s_ATM, carts, params, pos, a1, a2, s9,                               \
+            alph) private(el1, el2, el3, i, j, k, Q_A, Q_B, Q_C, r0ij, r0ik,   \
+                              r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,        \
+                              dis_ik, triple, c9, ang, x1, x2, x3, x4, x5, x6) \
+    reduction(+ : energy)
+
+  for (i = 0; i < n; i++) {
+    el1 = pos[i];
+    Q_A = pow(0.5 * pow(el1, 0.5) * r4r2::r4r2_ls[el1 - 1], 0.5);
+    for (j = 0; j < i; j++) {
+      el2 = pos[j];
+      Q_B = pow(0.5 * pow(el2, 0.5) * r4r2::r4r2_ls[el2 - 1], 0.5);
+      r0ij = a1 * pow(3 * Q_A * Q_B, 0.5) + a2;
+      dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+               (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+      for (k = 0; k < j; k++) {
+        el3 = pos[k];
+        Q_C = pow(0.5 * pow(el3, 0.5) * r4r2::r4r2_ls[el3 - 1], 0.5);
+        c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
+        r0ik = a1 * pow(3 * Q_A * Q_C, 0.5) + a2;
+        r0jk = a1 * pow(3 * Q_B * Q_C, 0.5) + a2;
+        r0 = r0ij * r0ik * r0jk;
+        triple = triple_scale(i, j, k);
+        dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
+                 (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
+                 (carts(i, 2) - carts(k, 2)) * (carts(i, 2) - carts(k, 2));
+        dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
+                 (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
+                 (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
+        r2 = dis_ij * dis_ik * dis_jk;
+        if (r2 < 1e-8) {
+          std::cout << "r2 too small" << std::endl;
+          continue;
+        };
+        r1 = pow(r2, 0.5);
+        r3 = r2 * r1;
+        r5 = r3 * r2;
+        // TODO: modify fdmp
+        /* fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0)); */
+
+        ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
+                   (-dis_ij + dis_jk + dis_ik) / r5 +
+               1.0 / r3);
+
+        /* c = (i * (i - 1) * (i - 2) / 6 + j * (j - 1) / 2 + k); */
+        /* std::cout << i << " " << j << " " << k << " " << c << std::endl; */
+
+        x1 = 6 * (ang * c9 * triple / 6.0);
+        x2 = r0;
+        x3 = r1;
+        x4 = r2;
+        x5 = alph;
+        energy += ((-1.7084029927853925 * x1 / x2) / (x3 + x5));
+      };
+    };
+  };
+  return energy;
 };
 
 double disp_ATM_2(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
@@ -332,6 +408,20 @@ double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return d - a - b;
 };
 
+double disp_ATM_SR_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                         py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                         py::EigenDRef<MatrixXd> cA,
+                         py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                         py::EigenDRef<MatrixXd> cB,
+                         py::EigenDRef<MatrixXd> C6s_ATM_B,
+                         Ref<VectorXd> params, py::EigenDRef<MatrixXd> vals) {
+  double d, a, b;
+  d = SR_testing(pos, carts, C6s_ATM, params, vals);
+  a = SR_testing(pA, cA, C6s_ATM_A, params, vals);
+  b = SR_testing(pB, cB, C6s_ATM_B, params, vals);
+  return d - a - b;
+};
+
 double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s,
                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
@@ -342,6 +432,27 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s_B,
                           py::EigenDRef<MatrixXd> C6s_ATM_B,
                           Ref<VectorXd> params_2B, Ref<VectorXd> params_ATM) {
+  double energy = 0;
+  energy +=
+      disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
+
+  if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
+    // checking to see if ATM is disabled
+    energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
+                                 C6s_ATM_B, params_ATM);
+  }
+  return energy;
+};
+double disp_2B_BJ_ATM_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                         py::EigenDRef<MatrixXd> C6s,
+                         py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                         py::EigenDRef<MatrixXd> cA,
+                         py::EigenDRef<MatrixXd> C6s_A,
+                         py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                         py::EigenDRef<MatrixXd> cB,
+                         py::EigenDRef<MatrixXd> C6s_B,
+                         py::EigenDRef<MatrixXd> C6s_ATM_B,
+                         Ref<VectorXd> params_2B, Ref<VectorXd> params_ATM) {
   double energy = 0;
   energy +=
       disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
