@@ -43,9 +43,8 @@ void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                  py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params,
                  py::EigenDRef<MatrixXd> vals);
 
-double SR_testing(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                  py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params,
-                  py::EigenDRef<MatrixXd> vals);
+double disp_SR_1(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                 py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM);
 // vals [[eABC, r0, r1, r2, alph]]
 
 double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
@@ -65,14 +64,9 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s_B,
                           py::EigenDRef<MatrixXd> C6s_ATM_B,
                           Ref<VectorXd> params, Ref<VectorXd> params_ATM);
-
-double
-disp_2B_BJ_ATM_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                  py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C6s_ATM,
-                  Ref<VectorXi> pA, py::EigenDRef<MatrixXd> cA,
-                  py::EigenDRef<MatrixXd> C6s_A,
-                  py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
-                  py::EigenDRef<MatrixXd> cB, py::EigenDRef<MatrixXd> C6s_B,
-                  py::EigenDRef<MatrixXd> C6s_ATM_B, Ref<VectorXd> params_2B,
-                  Ref<VectorXd> params_ATM, py::EigenDRef<MatrixXd> vals);
 } // namespace disp
+  //
+
+namespace d3 {
+    double compute_BJ(Ref<VectorXd> params, py::EigenDRef<MatrixXd> d3data);
+}

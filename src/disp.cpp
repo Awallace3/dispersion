@@ -182,29 +182,29 @@ void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         vals(c, 1) = r0;
         vals(c, 2) = r1;
         vals(c, 3) = r2;
-        vals(c, 4) = alph;
+        vals(c, 4) = pow(r2, 2) - r2;
       };
     };
   };
 };
 
-double SR_testing(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                  py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params,
-                  py::EigenDRef<MatrixXd> vals) {
+double disp_SR_1(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                 py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM) {
   int n = pos.size();
   double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
       dis_ik, triple, c9, ang;    // private
   int el1, el2, el3, i, j, k;     // private
   double a1, a2, s9, alph = 16.0; // public
-                                  //
+
+  //
   double energy, x1, x2, x3, x4, x5, x6;
   energy = 0;
+  a1 = params_ATM[2];
+  a2 = params_ATM[3];
+  s9 = params_ATM[4];
 
-  a1 = params[2];
-  a2 = params[3];
-  s9 = params[4];
 #pragma omp parallel for shared(                                               \
-        C6s_ATM, carts, params, pos, a1, a2, s9,                               \
+        C6s_ATM, carts, pos, a1, a2, s9,                                       \
             alph) private(el1, el2, el3, i, j, k, Q_A, Q_B, Q_C, r0ij, r0ik,   \
                               r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,        \
                               dis_ik, triple, c9, ang, x1, x2, x3, x4, x5, x6) \
@@ -261,6 +261,7 @@ double SR_testing(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
       };
     };
   };
+  /* printf("ATM energy: %f\n", energy); */
   return energy;
 };
 
@@ -408,20 +409,6 @@ double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return d - a - b;
 };
 
-double disp_ATM_SR_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                         py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
-                         py::EigenDRef<MatrixXd> cA,
-                         py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
-                         py::EigenDRef<MatrixXd> cB,
-                         py::EigenDRef<MatrixXd> C6s_ATM_B,
-                         Ref<VectorXd> params, py::EigenDRef<MatrixXd> vals) {
-  double d, a, b;
-  d = SR_testing(pos, carts, C6s_ATM, params, vals);
-  a = SR_testing(pA, cA, C6s_ATM_A, params, vals);
-  b = SR_testing(pB, cB, C6s_ATM_B, params, vals);
-  return d - a - b;
-};
-
 double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s,
                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
@@ -443,25 +430,20 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   }
   return energy;
 };
-double disp_2B_BJ_ATM_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                         py::EigenDRef<MatrixXd> C6s,
-                         py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
-                         py::EigenDRef<MatrixXd> cA,
-                         py::EigenDRef<MatrixXd> C6s_A,
-                         py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
-                         py::EigenDRef<MatrixXd> cB,
-                         py::EigenDRef<MatrixXd> C6s_B,
-                         py::EigenDRef<MatrixXd> C6s_ATM_B,
-                         Ref<VectorXd> params_2B, Ref<VectorXd> params_ATM) {
-  double energy = 0;
-  energy +=
-      disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
+} // namespace disp
 
-  if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
-    // checking to see if ATM is disabled
-    energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
-                                 C6s_ATM_B, params_ATM);
-  }
+namespace d3 {
+double compute_BJ(Ref<VectorXd> params, py::EigenDRef<MatrixXd> d3data) {
+  int i;
+  double R0, energy = 0.0;
+#pragma omp parallel for reduction(+ : energy) private(R0, i)
+  for (i = 0; i < d3data.rows(); i++) {
+    R0 = pow(d3data(i, 5) / d3data(i, 4), 0.5);
+    energy += d3data(i, 4) /
+              (pow(d3data(i, 2), 6.0) + pow(params(1) * R0 + params(2), 6.0));
+    energy += params(0) * d3data(i, 5) /
+              (pow(d3data(i, 2), 8.0) + pow(params(1) * R0 + params(2), 8.0));
+  };
   return energy;
 };
-} // namespace disp
+} // namespace d3
