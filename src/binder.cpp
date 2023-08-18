@@ -107,6 +107,14 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s"),
           py::arg("params_ATM"));
 
+  m_d.def("disp_SR_2", &disp::disp_SR_2, R"pbdoc(
+        Evaluate SR values
+        NOTE: dynamically chaning with change of vals_for_SR
+
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"),
+          py::arg("params_ATM"));
+
   m_d.def("disp_ATM_CHG", &disp::disp_ATM_CHG, R"pbdoc(
         calculate -D4 ATM Chair and Head-Gordon (CHG) damping dispersion
         )pbdoc",
