@@ -57,6 +57,7 @@ double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> cB,
                           py::EigenDRef<MatrixXd> C6s_ATM_B,
                           Ref<VectorXd> params);
+
 double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s,
                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
@@ -67,9 +68,35 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s_B,
                           py::EigenDRef<MatrixXd> C6s_ATM_B,
                           Ref<VectorXd> params, Ref<VectorXd> params_ATM);
+
+// START Tang-Toennies damping
+// https://pubs.aip.org/aip/jcp/article/132/23/234109/71413
+double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                    py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params);
+
+double disp_ATM_TT_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                         py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                         py::EigenDRef<MatrixXd> cA,
+                         py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                         py::EigenDRef<MatrixXd> cB,
+                         py::EigenDRef<MatrixXd> C6s_ATM_B,
+                         Ref<VectorXd> params);
+
+double disp_2B_BJ_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                         py::EigenDRef<MatrixXd> C6s,
+                         py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                         py::EigenDRef<MatrixXd> cA,
+                         py::EigenDRef<MatrixXd> C6s_A,
+                         py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                         py::EigenDRef<MatrixXd> cB,
+                         py::EigenDRef<MatrixXd> C6s_B,
+                         py::EigenDRef<MatrixXd> C6s_ATM_B,
+                         Ref<VectorXd> params, Ref<VectorXd> params_ATM);
+// END Tang-Toennies damping
+
 } // namespace disp
   //
 
 namespace d3 {
-    double compute_BJ(Ref<VectorXd> params, py::EigenDRef<MatrixXd> d3data);
+double compute_BJ(Ref<VectorXd> params, py::EigenDRef<MatrixXd> d3data);
 }

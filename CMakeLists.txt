@@ -54,7 +54,7 @@ find_package(OpenMP REQUIRED)
 
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pybind11/include /theoryfs2/ds/amwalla3/miniconda3/envs/qcn/include/python3.8 /usr/include/eigen3)
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pybind11/include /usr/include/eigen3)
-pybind11_add_module(dispersion src/binder.cpp src/disp.cpp src/r4r2.cpp)
+pybind11_add_module(dispersion src/binder.cpp src/disp.cpp src/constants.cpp)
 # target_link_libraries(dispersion PRIVATE disp)
 
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pybind11/include /theoryfs2/ds/amwalla3/miniconda3/envs/qcn/include/python3.8 /usr/include/eigen3)
