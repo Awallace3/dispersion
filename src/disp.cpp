@@ -508,43 +508,51 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   }
   return energy;
 };
+long factorial(const int n) {
+  long f = 1;
+  for (int i = 1; i <= n; ++i)
+    f *= i;
+  return f;
+}
+double f6_TT_summation(double b_ij, double R_ij) {
+  double v = 0;
+  for (int k = 0; k < 7; k++)
+    v += pow(b_ij * R_ij, k) / factorial(k);
+  return v;
+};
+
 double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                    py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params) {
   double energy = 0;
   int n = pos.size();
-  double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
-      dis_ik, triple, c9, fdmp, ang; // private
-  int el1, el2, el3, i, j, k;        // private
-  double a1, a2, s9, alph = 16.0;    // public
+  double Q_A, Q_B, Q_C, r1, r2, r3, r5, dis_ij, dis_jk, dis_ik, triple, c9,
+      fdmp, ang, s9;          // private
+  int el1, el2, el3, i, j, k; // private
+  double vdw_i, vdw_j, vdw_k, b_ij, b_ik, b_kj, f6_ij, f6_ik,
+      f6_kj; // private
 
-  /* s6 = params[0]; */
-  /* s8 = params[1]; */
-  a1 = params[2];
-  a2 = params[3];
-  s9 = params[4];
-#pragma omp parallel for shared(                                               \
-        C6s_ATM, carts, params, pos, a1, a2, s9,                               \
-            alph) private(el1, el2, el3, i, j, k, Q_A, Q_B, Q_C, r0ij, r0ik,   \
-                              r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,        \
-                              dis_ik, triple, c9, fdmp, ang)                   \
-    reduction(+ : energy)
+#pragma omp parallel for shared(C6s_ATM, carts, params, pos, s9) private(      \
+        el1, el2, el3, i, j, k, r1, r2, r3, r5, dis_ij, dis_jk, dis_ik,        \
+            triple, c9, fdmp, ang) reduction(+ : energy)
   for (i = 0; i < n; i++) {
     el1 = pos[i];
-    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    vdw_i = constants::vdw_ls[el1 - 1];
     for (j = 0; j < i; j++) {
       el2 = pos[j];
-      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
-      r0ij = a1 * pow(3 * Q_A * Q_B, 0.5) + a2;
+      vdw_j = constants::vdw_ls[el2 - 1];
+      b_ij = -0.31 * (vdw_i + vdw_j) + 3.43; // b_IJ = -0.33 (D_IJ) + 4.39
       dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
                (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
                (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+      f6_ij = 1 - exp(-b_ij * dis_ij) * f6_TT_summation(b_ij, dis_ij); //
       for (k = 0; k < j; k++) {
         el3 = pos[k];
-        Q_C = pow(0.5 * pow(el3, 0.5) * constants::r4r2_ls[el3 - 1], 0.5);
+        vdw_k = constants::vdw_ls[el3 - 1];
+        b_ik = -0.31 * (vdw_i + vdw_k) + 3.43; // b_IJ = -0.33 (D_IJ) + 4.39
+        b_kj = -0.31 * (vdw_k + vdw_j) + 3.43; // b_IJ = -0.33 (D_IJ) + 4.39
+        f6_ik = 1 - exp(-b_ik * dis_ik) * f6_TT_summation(b_ik, dis_ik); //
+        f6_kj = 1 - exp(-b_kj * dis_jk) * f6_TT_summation(b_kj, dis_jk); //
         c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
-        r0ik = a1 * pow(3 * Q_A * Q_C, 0.5) + a2;
-        r0jk = a1 * pow(3 * Q_B * Q_C, 0.5) + a2;
-        r0 = r0ij * r0ik * r0jk;
         triple = triple_scale(i, j, k);
         dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
                  (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
@@ -560,11 +568,10 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         r1 = pow(r2, 0.5);
         r3 = r2 * r1;
         r5 = r3 * r2;
-        /* fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0)); */
-        fdmp = 1;
         ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
                    (-dis_ij + dis_jk + dis_ik) / r5 +
                1.0 / r3);
+        fdmp = f6_ij * f6_ik * f6_kj;
         energy -= 6 * (ang * fdmp * c9 * triple / 6.0);
       };
     };
@@ -578,7 +585,13 @@ double disp_ATM_TT_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                          py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
                          py::EigenDRef<MatrixXd> cB,
                          py::EigenDRef<MatrixXd> C6s_ATM_B,
-                         Ref<VectorXd> params){};
+                         Ref<VectorXd> params) {
+  double d, a, b;
+  d = disp_ATM_TT(pos, carts, C6s_ATM, params);
+  a = disp_ATM_TT(pA, cA, C6s_ATM_A, params);
+  b = disp_ATM_TT(pB, cB, C6s_ATM_B, params);
+  return d - a - b;
+};
 
 double disp_2B_BJ_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                          py::EigenDRef<MatrixXd> C6s,
@@ -589,7 +602,18 @@ double disp_2B_BJ_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                          py::EigenDRef<MatrixXd> cB,
                          py::EigenDRef<MatrixXd> C6s_B,
                          py::EigenDRef<MatrixXd> C6s_ATM_B,
-                         Ref<VectorXd> params, Ref<VectorXd> params_ATM){};
+                         Ref<VectorXd> params_2B, Ref<VectorXd> params_ATM) {
+  double energy = 0;
+  energy +=
+      disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
+
+  if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
+    // checking to see if ATM is disabled
+    energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
+                                 C6s_ATM_B, params_ATM);
+  }
+  return energy;
+};
 
 } // namespace disp
 

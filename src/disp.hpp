@@ -71,8 +71,10 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 
 // START Tang-Toennies damping
 // https://pubs.aip.org/aip/jcp/article/132/23/234109/71413
+//
+double f6_TT_summation(double b_ij, double R_ij);
 double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                    py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params);
+                   py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params);
 
 double disp_ATM_TT_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                          py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
@@ -91,7 +93,7 @@ double disp_2B_BJ_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                          py::EigenDRef<MatrixXd> cB,
                          py::EigenDRef<MatrixXd> C6s_B,
                          py::EigenDRef<MatrixXd> C6s_ATM_B,
-                         Ref<VectorXd> params, Ref<VectorXd> params_ATM);
+                         Ref<VectorXd> params_2B, Ref<VectorXd> params_ATM);
 // END Tang-Toennies damping
 
 } // namespace disp

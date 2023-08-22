@@ -135,6 +135,27 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pB"), py::arg("cB"), py::arg("C6s_B"), py::arg("C6s_ATM_B"),
           py::arg("params_2B"), py::arg("params_ATM"));
 
+  m_d.def("disp_ATM_TT", &disp::disp_ATM_TT, R"pbdoc(
+        calculate -D4 ATM Chair and Head-Gordon (TT) damping dispersion
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s_ATM"),
+          py::arg("params"));
+
+  m_d.def("disp_ATM_TT_dimer", &disp::disp_ATM_TT_dimer, R"pbdoc(
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s_ATM"), py::arg("pA"),
+          py::arg("cA"), py::arg("C6s_ATM_A"), py::arg("pB"), py::arg("cB"),
+          py::arg("C6s_ATM_B"), py::arg("params"));
+
+  m_d.def("disp_2B_BJ_ATM_TT", &disp::disp_2B_BJ_ATM_TT, R"pbdoc(
+        calculate -D4 2Body (BJ) ATM (TT) damping dispersion
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C6s_ATM"),
+          py::arg("pA"), py::arg("cA"), py::arg("C6s_A"), py::arg("C6s_ATM_A"),
+          py::arg("pB"), py::arg("cB"), py::arg("C6s_B"), py::arg("C6s_ATM_B"),
+          py::arg("params_2B"), py::arg("params_ATM"));
+
+
   auto m_d3 = m.def_submodule("d3", "D3 dispersion");
   m_d3.def("compute_BJ", &d3::compute_BJ, R"pbdoc(
         calculate -D3(BJ) dispersion energy from positions, cartesians, C6s, and params
