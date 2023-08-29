@@ -114,6 +114,7 @@ PYBIND11_MODULE(dispersion, m) {
         )pbdoc",
           py::arg("pos"), py::arg("carts"), py::arg("C6s"),
           py::arg("params_ATM"));
+
   m_d.def("disp_SR_3", &disp::disp_SR_3, R"pbdoc(
         Evaluate SR values
         NOTE: dynamically chaning with change of vals_for_SR
@@ -121,6 +122,30 @@ PYBIND11_MODULE(dispersion, m) {
         )pbdoc",
           py::arg("pos"), py::arg("carts"), py::arg("C6s"),
           py::arg("params_ATM"));
+
+  m_d.def("disp_SR_4", &disp::disp_SR_4, R"pbdoc(
+        Evaluate SR values
+        NOTE: dynamically chaning with change of vals_for_SR
+
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"),
+          py::arg("params_ATM"));
+
+  m_d.def("disp_SR_4_vals", &disp::disp_SR_4_vals, R"pbdoc(
+        Evaluate SR values
+        NOTE: dynamically chaning with change of vals_for_SR
+
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"),
+          py::arg("params_ATM"), py::arg("vals"));
+
+  m_d.def("disp_SR_5_vals", &disp::disp_SR_5_vals, R"pbdoc(
+        Evaluate SR values
+        NOTE: dynamically chaning with change of vals_for_SR
+
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"),
+          py::arg("params_ATM"), py::arg("vals"));
 
   m_d.def("disp_ATM_CHG", &disp::disp_ATM_CHG, R"pbdoc(
         calculate -D4 ATM Chair and Head-Gordon (CHG) damping dispersion

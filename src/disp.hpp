@@ -7,6 +7,10 @@ using namespace Eigen;
 namespace py = pybind11;
 
 namespace disp {
+
+double cube(double x);
+double sqrt(double x);
+double square(double x);
 double np_array_sum_test(std::vector<double> &v);
 
 void np_array_multiply_test(std::vector<std::vector<double>> &, double &);
@@ -51,6 +55,18 @@ double disp_SR_2(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 // vals [[eABC, r0, r1, r2, r2**2 - r2]]
 double disp_SR_3(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                  py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM);
+
+double disp_SR_4(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                 py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM);
+
+double disp_SR_4_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                      py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM,
+                      py::EigenDRef<MatrixXd> vals);
+
+double disp_SR_5_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                      py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM,
+                      py::EigenDRef<MatrixXd> vals);
+
 
 double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
