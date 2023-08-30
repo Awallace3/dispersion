@@ -595,6 +595,7 @@ double disp_SR_5_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   double a1, a2, s9;             // public
   double x0, x1, x2, x3, x4, x5;
   double energy = 0;
+  double vdw_i, vdw_j, vdw_k, x6, x7, x8, fmp;
   // size(eABC) = np.zeros((int(N * (N - 1) * (N - 2) / 6), 6))
 
   a1 = params_ATM[2];
@@ -603,13 +604,17 @@ double disp_SR_5_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 #pragma omp parallel for shared(C6s_ATM, carts, pos, a1, a2, s9) private(      \
         el1, el2, el3, i, j, k, c, Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1,    \
             r2, r3, r5, dis_ij, dis_jk, dis_ik, x0, x1, x2, x3, x4, x5,        \
-            triple, c9, ang) reduction(+ : energy)
+            triple, c9, ang, vdw_i, vdw_j, vdw_k, x6, x7, x8, fmp)       \
+    reduction(+ : energy)
 
   for (i = 0; i < n; i++) {
     el1 = pos[i];
+    vdw_i = constants::vdw_ls[el1];
     Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
     for (j = 0; j < i; j++) {
       el2 = pos[j];
+      vdw_j = constants::vdw_ls[el2];
+      x6 = vdw_i + vdw_j; // b_IJ = -0.33 (D_IJ) + 4.39
       Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
       r0ij = a1 * pow(3 * Q_A * Q_B, 0.5) + a2;
       dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
@@ -617,6 +622,9 @@ double disp_SR_5_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
       for (k = 0; k < j; k++) {
         el3 = pos[k];
+        vdw_k = constants::vdw_ls[el3];
+        x7 = vdw_i + vdw_k; // b_IJ = -0.33 (D_IJ) + 4.39
+        x8 = vdw_k + vdw_j; // b_IJ = -0.33 (D_IJ) + 4.39
         Q_C = pow(0.5 * pow(el3, 0.5) * constants::r4r2_ls[el3 - 1], 0.5);
         c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
         r0ik = a1 * pow(3 * Q_A * Q_C, 0.5) + a2;
@@ -653,7 +661,11 @@ double disp_SR_5_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         vals(c, 2) = x2;
         vals(c, 3) = x3;
         vals(c, 4) = x4;
-        energy += (((-1.7200158457891235 - x3) / (x2 / square(x0))) / x2);
+        vals(c, 5) = x7;
+        vals(c, 6) = x6;
+        vals(c, 7) = x8;
+        fmp = (-1.4047068914889211 / (x3 + x1));
+        energy += x0 * fmp;
       };
     };
   };
