@@ -91,6 +91,9 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 // https://pubs.aip.org/aip/jcp/article/132/23/234109/71413
 //
 double f6_TT_summation(double b_ij, double R_ij);
+double f6_TT_summation(double R_b_ij);
+double f6_TT(double b_ij, double R_ij);
+
 double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                    py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params);
 
