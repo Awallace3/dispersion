@@ -16,6 +16,7 @@ namespace disp {
 double cube(double x) { return x * x * x; };
 double sqrt(double x) { return pow(x, 0.5); };
 double square(double x) { return pow(x, 2.0); };
+double neg_exp(double x){ return exp(-x);};
 double np_array_sum_test(std::vector<double> &v) {
   double sum = 0;
   for (auto &x : v) {
@@ -671,6 +672,176 @@ double disp_SR_5_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy;
 };
 
+double disp_SR_6_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                      py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM,
+                      py::EigenDRef<MatrixXd> vals) {
+  int n = pos.size();
+  double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
+      dis_ik, triple, c9, ang;   // private
+  int el1, el2, el3, i, j, k, c; // private
+  double a1, a2, s9;             // public
+  double x0, x1, x2, x3, x4, x5;
+  double energy = 0;
+  double vdw_i, vdw_j, vdw_k, x6, x7, fmp;
+  // size(eABC) = np.zeros((int(N * (N - 1) * (N - 2) / 6), 6))
+
+  a1 = params_ATM[2];
+  a2 = params_ATM[3];
+  s9 = params_ATM[4];
+#pragma omp parallel for shared(C6s_ATM, carts, pos, a1, a2, s9) private(      \
+        el1, el2, el3, i, j, k, c, Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1,    \
+            r2, r3, r5, dis_ij, dis_jk, dis_ik, x0, x1, x2, x3, x4, x5,        \
+            triple, c9, ang, vdw_i, vdw_j, vdw_k, x6, x7, fmp)                 \
+    reduction(+ : energy)
+
+  for (i = 0; i < n; i++) {
+    el1 = pos[i];
+    vdw_i = constants::vdw_ls[el1];
+    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    for (j = 0; j < i; j++) {
+      el2 = pos[j];
+      vdw_j = constants::vdw_ls[el2];
+      x5 = vdw_i + vdw_j; // b_IJ = -0.33 (D_IJ) + 4.39
+      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
+      r0ij = a1 * pow(3 * Q_A * Q_B, 0.5) + a2;
+      dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+               (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+      for (k = 0; k < j; k++) {
+        el3 = pos[k];
+        vdw_k = constants::vdw_ls[el3];
+        x6 = vdw_i + vdw_k; // b_IJ = -0.33 (D_IJ) + 4.39
+        x7 = vdw_k + vdw_j; // b_IJ = -0.33 (D_IJ) + 4.39
+        Q_C = pow(0.5 * pow(el3, 0.5) * constants::r4r2_ls[el3 - 1], 0.5);
+        c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
+        r0ik = a1 * pow(3 * Q_A * Q_C, 0.5) + a2;
+        r0jk = a1 * pow(3 * Q_B * Q_C, 0.5) + a2;
+        r0 = r0ij * r0ik * r0jk;
+        triple = triple_scale(i, j, k);
+        dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
+                 (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
+                 (carts(i, 2) - carts(k, 2)) * (carts(i, 2) - carts(k, 2));
+        dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
+                 (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
+                 (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
+        r2 = dis_ij * dis_ik * dis_jk;
+        if (r2 < 1e-8) {
+          std::cout << "r2 too small" << std::endl;
+          continue;
+        };
+        r1 = pow(r2, 0.5);
+        r3 = r2 * r1;
+        r5 = r3 * r2;
+
+        ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
+                   (-dis_ij + dis_jk + dis_ik) / r5 +
+               1.0 / r3);
+
+        c = (i * (i - 1) * (i - 2) / 6 + j * (j - 1) / 2 + k);
+        x0 = 6 * (ang * c9 * triple / 6.0) * hartree_to_kcalmol;
+        x1 = r0;
+        x2 = r1;
+        x3 = r2;
+        x4 = pow(r2, 2) - r2;
+        vals(c, 0) = x0;
+        vals(c, 1) = x1;
+        vals(c, 2) = x2;
+        vals(c, 3) = x3;
+        vals(c, 4) = x4;
+        fmp = (square(square(0.20007955972054262) * x1) * x1);
+        energy += x0 * fmp;
+      };
+    };
+  };
+  return energy;
+};
+
+double disp_SR_7_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                      py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM,
+                      py::EigenDRef<MatrixXd> vals) {
+  int n = pos.size();
+  double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
+      dis_ik, triple, c9, ang;   // private
+  int el1, el2, el3, i, j, k, c; // private
+  double a1, a2, s9;             // public
+  double x0, x1, x2, x3, x4, x5, x6;
+  double energy = 0;
+  double vdw_i, vdw_j, vdw_k, fmp;
+  // size(eABC) = np.zeros((int(N * (N - 1) * (N - 2) / 6), 6))
+
+  a1 = params_ATM[2];
+  a2 = params_ATM[3];
+  s9 = params_ATM[4];
+#pragma omp parallel for shared(C6s_ATM, carts, pos, a1, a2, s9) private(      \
+        el1, el2, el3, i, j, k, c, Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1,    \
+            r2, r3, r5, dis_ij, dis_jk, dis_ik, x0, x1, x2, x3, x4, x5, x6,        \
+            triple, c9, ang, vdw_i, vdw_j, vdw_k, fmp)                 \
+    reduction(+ : energy)
+
+  for (i = 0; i < n; i++) {
+    el1 = pos[i];
+    vdw_i = constants::vdw_ls[el1];
+    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    for (j = 0; j < i; j++) {
+      el2 = pos[j];
+      vdw_j = constants::vdw_ls[el2];
+      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
+      r0ij = a1 * pow(3 * Q_A * Q_B, 0.5) + a2;
+      dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+               (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+      for (k = 0; k < j; k++) {
+        el3 = pos[k];
+        vdw_k = constants::vdw_ls[el3];
+        Q_C = pow(0.5 * pow(el3, 0.5) * constants::r4r2_ls[el3 - 1], 0.5);
+        c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
+        r0ik = a1 * pow(3 * Q_A * Q_C, 0.5) + a2;
+        r0jk = a1 * pow(3 * Q_B * Q_C, 0.5) + a2;
+        r0 = r0ij * r0ik * r0jk;
+        triple = triple_scale(i, j, k);
+        dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
+                 (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
+                 (carts(i, 2) - carts(k, 2)) * (carts(i, 2) - carts(k, 2));
+        dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
+                 (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
+                 (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
+        r2 = dis_ij * dis_ik * dis_jk;
+        if (r2 < 1e-8) {
+          std::cout << "r2 too small" << std::endl;
+          continue;
+        };
+        r1 = pow(r2, 0.5);
+        r3 = r2 * r1;
+        r5 = r3 * r2;
+
+        ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
+                   (-dis_ij + dis_jk + dis_ik) / r5 +
+               1.0 / r3);
+
+        c = (i * (i - 1) * (i - 2) / 6 + j * (j - 1) / 2 + k);
+        x0 = 6 * (ang * c9 * triple / 6.0) * hartree_to_kcalmol;
+        x1 = r0; // x1 = r0ij * r0ik * r0jk, where r0ij = a1 * sqrt{3 * Q_A * Q_B} + a2
+        x2 = r1; // x2 = \sqrt{r2} = sqrt{R_ij * R_ik * R_jk}
+        x3 = r2; // x3 = r2 = R_ij * R_ik * R_jk
+        x4 = pow(r2, 2) - r2; // x4 = r2**2 - r2
+        /* x5 = (vdw_i + vdw_j) / dis_ij * (vdw_i + vdw_k) / dis_ik * (vdw_j + vdw_k) / dis_jk; */
+        x5 =  dis_ij / (vdw_i + vdw_j) *  dis_ik / (vdw_i + vdw_k)  * dis_jk / (vdw_j + vdw_k);
+        x6 =  pow(Q_A * Q_B * Q_C, 0.5);
+        vals(c, 0) = x0;
+        vals(c, 1) = x1;
+        vals(c, 2) = x2;
+        vals(c, 3) = x3;
+        vals(c, 4) = x4;
+        vals(c, 5) = x5;
+        vals(c, 6) = x6;
+        fmp = ((neg_exp(x4) - x1) / x4);
+        /* fmp = (sqrt(neg_exp(x2)) / -0.3455767973882069); */
+        energy += x0 * fmp;
+      };
+    };
+  };
+  return energy;
+};
 double disp_ATM_2(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                   py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params) {
   /* int lattice_points = 1; */
