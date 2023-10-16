@@ -76,6 +76,10 @@ double disp_SR_7_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                       py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM,
                       py::EigenDRef<MatrixXd> vals);
 
+double disp_SR_8_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                      py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params_ATM,
+                      py::EigenDRef<MatrixXd> vals);
+
 double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
                           py::EigenDRef<MatrixXd> cA,
