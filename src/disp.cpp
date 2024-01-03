@@ -920,13 +920,15 @@ double disp_SR_8_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         vals(c, 4) = x4;
         vals(c, 5) = x5;
         vals(c, 6) = x6;
-        fmp = (226.45406572276212 / (square(x1) - x3));
+        /* fmp = (neg_exp(sqrt(square((square(x5) - sqrt(x2)) + x5))) * -0.8528365189851412); */
+        fmp = (neg_exp((x2 + -2.395968231142372) * x2) - 0.1115719820955153);
         energy += x0 * fmp;
       };
     };
   };
   return energy;
 };
+
 double disp_ATM_2(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                   py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params) {
   /* int lattice_points = 1; */
