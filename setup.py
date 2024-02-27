@@ -126,8 +126,8 @@ class CMakeBuild(build_ext):
 # The information here can also be placed in setup.cfg - better separation of
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
-    name="dispersion",
-    version="0.0.1",
+    name="dispersion_amw",
+    version="0.1.0",
     author="Austin Wallace",
     author_email="austinwallace196@gmail.com",
     description="Dispersion module in C++ for Python",
