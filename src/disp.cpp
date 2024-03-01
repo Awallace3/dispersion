@@ -1148,7 +1148,7 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
                (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
       /* f6_ij = 1 - exp(-b_ij * dis_ij) * f6_TT_summation(b_ij, dis_ij); // */
-      f6_ij = f6_TT(b_ij, dis_ij);
+      f6_ij = f6_TT(b_ij, pow(dis_ij, 0.5));
       for (k = 0; k < j; k++) {
         el3 = pos[k];
         vdw_k = constants::vdw_ls[el3];
@@ -1166,8 +1166,8 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
          */
         /* f6_jk = 1 - exp(-b_jk * dis_jk) * f6_TT_summation(b_jk, dis_jk); //
          */
-        f6_ik = f6_TT(b_ik, dis_ik);
-        f6_jk = f6_TT(b_jk, dis_jk);
+        f6_ik = f6_TT(b_ik, pow(dis_ik, 0.5));
+        f6_jk = f6_TT(b_jk, pow(dis_jk, 0.5));
         r2 = dis_ij * dis_ik * dis_jk;
         if (r2 < 1e-8) {
           std::cout << "r2 too small" << std::endl;
