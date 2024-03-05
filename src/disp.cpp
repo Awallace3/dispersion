@@ -108,6 +108,56 @@ double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return d - a - b;
 };
 
+double disp_2B_C6(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+               py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params) {
+  int lattice_points = 1;
+  double energy = 0;
+  int n = pos.size();
+  double Q_A, Q_B, rrij, r0ij, dis;
+  int el1, el2, i, j, k;
+  double s6, a1, a2, de, edisp, t6, t8;
+  s6 = params[0];
+  a1 = params[2];
+  a2 = params[3];
+#pragma omp parallel for shared(C6s, carts, params, pos) private(              \
+        i, j, k, el1, el2, Q_A, Q_B, rrij, r0ij, dis, t6, t8, de)              \
+    reduction(+ : energy)
+  for (i = 0; i < n; i++) {
+    el1 = pos[i];
+    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    for (j = 0; j < i; j++) {
+      el2 = pos[j];
+      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
+      for (k = 0; k < lattice_points; k++) {
+        rrij = 3 * Q_A * Q_B;
+        r0ij = a1 * pow(rrij, 0.5) + a2;
+        dis = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+              (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+              (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+
+        t6 = 1 / (pow(dis, 3) + pow(r0ij, 6));
+        edisp = s6 * t6;
+
+        de = -C6s(i, j) * edisp * 0.5;
+        energy += de;
+      }
+    }
+  };
+  return energy *= 2;
+};
+
+double disp_2B_dimer_C6(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                     py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
+                     py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,
+                     Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
+                     py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params) {
+  double d, a, b;
+  d = disp_2B_C6(pos, carts, C6s, params);
+  a = disp_2B_C6(pA, cA, C6s_A, params);
+  b = disp_2B_C6(pB, cB, C6s_B, params);
+  return d - a - b;
+};
+
 double triple_scale(int i, int j, int k) {
   if (i == j) {
     if (i == k) {
@@ -920,13 +970,15 @@ double disp_SR_8_vals(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         vals(c, 4) = x4;
         vals(c, 5) = x5;
         vals(c, 6) = x6;
-        fmp = (226.45406572276212 / (square(x1) - x3));
+        /* fmp = (neg_exp(sqrt(square((square(x5) - sqrt(x2)) + x5))) * -0.8528365189851412); */
+        fmp = (neg_exp((x2 + -2.395968231142372) * x2) - 0.1115719820955153);
         energy += x0 * fmp;
       };
     };
   };
   return energy;
 };
+
 double disp_ATM_2(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                   py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params) {
   /* int lattice_points = 1; */
@@ -1083,6 +1135,28 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   double energy = 0;
   energy +=
       disp_2B_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
+
+  if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
+    // checking to see if ATM is disabled
+    energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
+                                 C6s_ATM_B, params_ATM);
+  }
+  return energy;
+};
+
+double disp_2B_C6_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                          py::EigenDRef<MatrixXd> C6s,
+                          py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                          py::EigenDRef<MatrixXd> cA,
+                          py::EigenDRef<MatrixXd> C6s_A,
+                          py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                          py::EigenDRef<MatrixXd> cB,
+                          py::EigenDRef<MatrixXd> C6s_B,
+                          py::EigenDRef<MatrixXd> C6s_ATM_B,
+                          Ref<VectorXd> params_2B, Ref<VectorXd> params_ATM) {
+  double energy = 0;
+  energy +=
+      disp_2B_dimer_C6(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
 
   if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
     // checking to see if ATM is disabled
