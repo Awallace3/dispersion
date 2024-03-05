@@ -1099,25 +1099,25 @@ double factorial(const int n) {
   }
   return f;
 }
-double f6_TT_summation(double b_ij, double R_ij) {
+double f_n_TT_summation(double b_ij, double R_ij, int n) {
   double v = 0;
-  for (int k = 1; k <= 6; k++) {
+  for (int k = 1; k <= n; k++) {
     v += pow(b_ij * R_ij, k) / factorial(k);
   }
   return v;
 };
 
-double f6_TT_summation(double R_b_ij) {
+double f_n_TT_summation(double R_b_ij, int n) {
   double v = 0;
-  for (int k = 1; k <= 6; k++) {
+  for (int k = 1; k <= n; k++) {
     v += pow(R_b_ij, k) / factorial(k);
   }
   return v;
 };
 
-double f6_TT(double b_ij, double R_ij) {
+double f_n_TT(double b_ij, double R_ij, int n) {
   double R_b_ij = b_ij * R_ij;
-  return 1 - exp(-R_b_ij) * f6_TT_summation(R_b_ij);
+  return 1 - exp(-R_b_ij) * f_n_TT_summation(R_b_ij, n);
 }
 
 double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
@@ -1148,7 +1148,7 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
                (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
       /* f6_ij = 1 - exp(-b_ij * dis_ij) * f6_TT_summation(b_ij, dis_ij); // */
-      f6_ij = f6_TT(b_ij, pow(dis_ij, 0.5));
+      f6_ij = f_n_TT(b_ij, pow(dis_ij, 0.5), 9);
       for (k = 0; k < j; k++) {
         el3 = pos[k];
         vdw_k = constants::vdw_ls[el3];
@@ -1166,8 +1166,8 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
          */
         /* f6_jk = 1 - exp(-b_jk * dis_jk) * f6_TT_summation(b_jk, dis_jk); //
          */
-        f6_ik = f6_TT(b_ik, pow(dis_ik, 0.5));
-        f6_jk = f6_TT(b_jk, pow(dis_jk, 0.5));
+        f6_ik = f_n_TT(b_ik, pow(dis_ik, 0.5), 9);
+        f6_jk = f_n_TT(b_jk, pow(dis_jk, 0.5), 9);
         r2 = dis_ij * dis_ik * dis_jk;
         if (r2 < 1e-8) {
           std::cout << "r2 too small" << std::endl;
