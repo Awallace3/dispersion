@@ -32,6 +32,15 @@ double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                      Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
                      py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params);
 
+double disp_2B_C6(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+               py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params);
+
+double disp_2B_dimer_C6(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                     py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
+                     py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,
+                     Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
+                     py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params);
+
 double triple_scale(int i, int j, int k);
 
 double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
