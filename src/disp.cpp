@@ -1144,6 +1144,28 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy;
 };
 
+double disp_2B_C6_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                          py::EigenDRef<MatrixXd> C6s,
+                          py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                          py::EigenDRef<MatrixXd> cA,
+                          py::EigenDRef<MatrixXd> C6s_A,
+                          py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                          py::EigenDRef<MatrixXd> cB,
+                          py::EigenDRef<MatrixXd> C6s_B,
+                          py::EigenDRef<MatrixXd> C6s_ATM_B,
+                          Ref<VectorXd> params_2B, Ref<VectorXd> params_ATM) {
+  double energy = 0;
+  energy +=
+      disp_2B_dimer_C6(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
+
+  if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
+    // checking to see if ATM is disabled
+    energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
+                                 C6s_ATM_B, params_ATM);
+  }
+  return energy;
+};
+
 double factorial(const int n) {
   double f = 1;
   for (int i = 1; i <= n; ++i) {
