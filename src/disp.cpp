@@ -1262,6 +1262,61 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy;
 };
 
+double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+               py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params) {
+  int lattice_points = 1;
+  double energy = 0;
+  int n = pos.size();
+  double Q_A, Q_B, rrij, b_ij, dis;
+  int el1, el2, i, j, k;
+  double s6, s8, b1, b2, de, edisp, f6_ij, f8_ij, vdw_i, vdw_j;
+  s6 = params[0];
+  s8 = params[1];
+  b1 = params[2];
+  b2 = params[3];
+#pragma omp parallel for shared(C6s, carts, params, pos) private(              \
+        i, j, k, el1, el2, Q_A, Q_B, rrij, b_ij, dis, vdw_i, vdw_j, de)              \
+    reduction(+ : energy)
+  for (i = 0; i < n; i++) {
+    el1 = pos[i];
+    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    vdw_i = constants::vdw_ls[el1];
+    for (j = 0; j < i; j++) {
+      el2 = pos[j];
+      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
+      vdw_j = constants::vdw_ls[el2];
+      for (k = 0; k < lattice_points; k++) {
+        rrij = 3 * Q_A * Q_B;
+        b_ij = b1 * (vdw_i + vdw_j) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
+        dis = pow((carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+              (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+              (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2)), 0.5);
+
+        f6_ij = f_n_TT(b_ij, dis, 6);
+        f8_ij = f_n_TT(b_ij, dis, 8);
+
+        edisp = s6 * f6_ij + s8 * rrij * f8_ij;
+
+        de = -C6s(i, j) * edisp * 0.5;
+        energy += de;
+      }
+    }
+  };
+  return energy *= 2;
+};
+
+double disp_2B_TT_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                     py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
+                     py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,
+                     Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
+                     py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params) {
+  double d, a, b;
+  d = disp_2B_TT(pos, carts, C6s, params);
+  a = disp_2B_TT(pA, cA, C6s_A, params);
+  b = disp_2B_TT(pB, cB, C6s_B, params);
+  return d - a - b;
+};
+
 double disp_ATM_TT_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                          py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
                          py::EigenDRef<MatrixXd> cA,
@@ -1293,6 +1348,50 @@ double disp_2B_BJ_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
     // checking to see if ATM is disabled
     energy += disp_ATM_TT_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
+                                C6s_ATM_B, params_ATM);
+  }
+  return energy;
+};
+
+double disp_2B_TT_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                         py::EigenDRef<MatrixXd> C6s,
+                         py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                         py::EigenDRef<MatrixXd> cA,
+                         py::EigenDRef<MatrixXd> C6s_A,
+                         py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                         py::EigenDRef<MatrixXd> cB,
+                         py::EigenDRef<MatrixXd> C6s_B,
+                         py::EigenDRef<MatrixXd> C6s_ATM_B,
+                         Ref<VectorXd> params_2B, Ref<VectorXd> params_ATM) {
+  double energy = 0;
+  energy +=
+      disp_2B_TT_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
+
+  if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
+    // checking to see if ATM is disabled
+    energy += disp_ATM_TT_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
+                                C6s_ATM_B, params_ATM);
+  }
+  return energy;
+};
+
+double disp_2B_TT_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                         py::EigenDRef<MatrixXd> C6s,
+                         py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                         py::EigenDRef<MatrixXd> cA,
+                         py::EigenDRef<MatrixXd> C6s_A,
+                         py::EigenDRef<MatrixXd> C6s_ATM_A, Ref<VectorXi> pB,
+                         py::EigenDRef<MatrixXd> cB,
+                         py::EigenDRef<MatrixXd> C6s_B,
+                         py::EigenDRef<MatrixXd> C6s_ATM_B,
+                         Ref<VectorXd> params_2B, Ref<VectorXd> params_ATM) {
+  double energy = 0;
+  energy +=
+      disp_2B_TT_dimer(pos, carts, C6s, pA, cA, C6s_A, pB, cB, C6s_B, params_2B);
+
+  if (params_ATM.size() >= 4 && params_ATM[params_ATM.size() - 1] != 0.0) {
+    // checking to see if ATM is disabled
+    energy += disp_ATM_CHG_dimer(pos, carts, C6s_ATM, pA, cA, C6s_ATM_A, pB, cB,
                                 C6s_ATM_B, params_ATM);
   }
   return energy;
