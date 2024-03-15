@@ -1295,11 +1295,8 @@ double disp_2B_TT_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                         py::EigenDRef<MatrixXd> cB,
                         py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params) {
   double d, a, b;
-  printf("disp_2B_TT: dimer\n");
   d = disp_2B_TT(pos, carts, C6s, params);
-  printf("disp_2B_TT: monA\n");
   a = disp_2B_TT(pA, cA, C6s_A, params);
-  printf("disp_2B_TT: monB\n");
   b = disp_2B_TT(pB, cB, C6s_B, params);
   return d - a - b;
 };
