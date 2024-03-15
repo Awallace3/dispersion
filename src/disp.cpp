@@ -1178,13 +1178,6 @@ double factorial(const int n) {
   }
   return f;
 }
-double f_n_TT_summation(double b_ij, double R_ij, int n) {
-  double v = 0;
-  for (int k = 1; k <= n; k++) {
-    v += pow(b_ij * R_ij, k) / factorial(k);
-  }
-  return v;
-};
 
 double f_n_TT_summation(double R_b_ij, int n) {
   double v = 0;
@@ -1203,14 +1196,14 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                    py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params) {
   double energy = 0;
   int n = pos.size();
-  double a1, a2, s9;
+  double b3, b4, s9;
   double r1, r2, r3, r5, dis_ij, dis_jk, dis_ik, triple, c9, fdmp,
       ang;                    // private
   int el1, el2, el3, i, j, k; // private
   double vdw_i, vdw_j, vdw_k, b_ij, b_ik, b_jk, f6_ij, f6_ik,
       f6_jk;      // private
-  a1 = params[2]; // -0.31
-  a2 = params[3]; // 3.43
+  b3 = params[2]; // -0.31
+  b4 = params[3]; // 3.43
   s9 = params[4];
 
 #pragma omp parallel for shared(C6s_ATM, carts, params, pos) private(          \
@@ -1222,17 +1215,16 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
     for (j = 0; j < i; j++) {
       el2 = pos[j];
       vdw_j = constants::vdw_ls[el2];
-      b_ij = a1 * (vdw_i + vdw_j) + a2; // b_IJ = -0.33 (D_IJ) + 4.39
+      b_ij = b3 * (vdw_i + vdw_j) + b4; // b_IJ = -0.33 (D_IJ) + 4.39
       dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
                (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
                (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
-      /* f6_ij = 1 - exp(-b_ij * dis_ij) * f6_TT_summation(b_ij, dis_ij); // */
-      f6_ij = f_n_TT(b_ij, pow(dis_ij, 0.5), 9);
+      f6_ij = f_n_TT(b_ij, pow(dis_ij, 0.5), 6);
       for (k = 0; k < j; k++) {
         el3 = pos[k];
         vdw_k = constants::vdw_ls[el3];
-        b_ik = -a1 * (vdw_i + vdw_k) + a2; // b_IJ = -0.33 (D_IJ) + 4.39
-        b_jk = -a1 * (vdw_k + vdw_j) + a2; // b_IJ = -0.33 (D_IJ) + 4.39
+        b_ik = -b3 * (vdw_i + vdw_k) + b4; // b_IJ = -0.33 (D_IJ) + 4.39
+        b_jk = -b3 * (vdw_k + vdw_j) + b4; // b_IJ = -0.33 (D_IJ) + 4.39
         c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
         triple = triple_scale(i, j, k);
         dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
@@ -1241,12 +1233,8 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
                  (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
                  (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
-        /* f6_ik = 1 - exp(-b_ik * dis_ik) * f6_TT_summation(b_ik, dis_ik); //
-         */
-        /* f6_jk = 1 - exp(-b_jk * dis_jk) * f6_TT_summation(b_jk, dis_jk); //
-         */
-        f6_ik = f_n_TT(b_ik, pow(dis_ik, 0.5), 9);
-        f6_jk = f_n_TT(b_jk, pow(dis_jk, 0.5), 9);
+        f6_ik = f_n_TT(b_ik, pow(dis_ik, 0.5), 6);
+        f6_jk = f_n_TT(b_jk, pow(dis_jk, 0.5), 6);
         r2 = dis_ij * dis_ik * dis_jk;
         if (r2 < 1e-8) {
           std::cout << "r2 too small" << std::endl;
@@ -1259,8 +1247,7 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                    (-dis_ij + dis_jk + dis_ik) / r5 +
                1.0 / r3);
         fdmp = f6_ij * f6_ik * f6_jk;
-        energy -= 6 * (ang * c9 * triple / 6.0);
-        energy *= fdmp;
+        energy -= 6 * (ang * c9 * triple / 6.0) * fdmp;
       };
     };
   };
@@ -1272,26 +1259,25 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   int lattice_points = 1;
   double energy = 0;
   int n = pos.size();
-  double Q_A, Q_B, rrij, b_ij, dis;
   int el1, el2, i, j, k;
-  double s6, s8, b1, b2, de, edisp, f6_ij, f8_ij, vdw_i, vdw_j;
+  double s6, s8, b1, b2, de, f6_ij, f8_ij, vdw_i, vdw_j, C8, Q_A, Q_B,
+      b_ij, dis;
   s6 = params[0];
   s8 = params[1];
   b1 = params[2];
   b2 = params[3];
 #pragma omp parallel for shared(C6s, carts, params, pos) private(              \
-        i, j, k, el1, el2, Q_A, Q_B, rrij, b_ij, dis, vdw_i, vdw_j, de)        \
+        i, j, k, el1, el2, Q_A, Q_B, b_ij, dis, vdw_i, vdw_j, C8, de)    \
     reduction(+ : energy)
   for (i = 0; i < n; i++) {
     el1 = pos[i];
-    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
     vdw_i = constants::vdw_ls[el1];
+    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
     for (j = 0; j < i; j++) {
       el2 = pos[j];
-      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
       vdw_j = constants::vdw_ls[el2];
+      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
       for (k = 0; k < lattice_points; k++) {
-        rrij = 3 * Q_A * Q_B;
         b_ij = b1 * (vdw_i + vdw_j) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
         dis =
             pow((carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
@@ -1301,15 +1287,18 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 
         f6_ij = f_n_TT(b_ij, dis, 6);
         f8_ij = f_n_TT(b_ij, dis, 8);
+        // TODO debug...
+        // printf("f6_ij: %f\n", f6_ij);
+        // printf("f8_ij: %f\n", f8_ij);
 
-        edisp = s6 * f6_ij + s8 * rrij * f8_ij;
+        C8 = -C6s(i, j) * 3 * pow(Q_A * Q_B, 0.5);
 
-        de = -C6s(i, j) * edisp * 0.5;
+        de = s6 * f6_ij * -C6s(i, j) + s8 * f8_ij * C8;
         energy += de;
       }
     }
   };
-  return energy *= 2;
+  return energy;
 };
 
 double disp_2B_TT_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
