@@ -122,9 +122,10 @@ double disp_2B_C6_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 // START Tang-Toennies damping
 // https://pubs.aip.org/aip/jcp/article/132/23/234109/71413
 //
-double f_n_TT_summation(double b_ij, double R_ij);
-double f_n_TT_summation(double R_b_ij);
-double f_n_TT(double b_ij, double R_ij);
+double factorial(const int n);
+double f_n_TT(double b_ij, double R_ij, int n);
+double f_n_TT_summation(double R_b_ij, int n);
+
 
 double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params);

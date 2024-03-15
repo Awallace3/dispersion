@@ -57,6 +57,15 @@ PYBIND11_MODULE(dispersion, m) {
     )pbdoc");
 
   auto m_d = m.def_submodule("disp", "dispersion submodule");
+  m_d.def("factorial", &disp::factorial, R"pbdoc(
+        Calculate factorial of a number
+        )pbdoc", py::arg("n"));
+  m_d.def("f_n_TT", &disp::f_n_TT, R"pbdoc(
+        calculate f_n for TT damping
+        )pbdoc", py::arg("b_ij"), py::arg("R_ij"), py::arg("n"));
+  m_d.def("f_n_TT_summation", &disp::f_n_TT_summation, R"pbdoc(
+        calculate f_n for TT damping summation
+        )pbdoc", py::arg("R_b_ij"), py::arg("n"));
   m_d.def("np_array_sum_test", &disp::np_array_sum_test, R"pbdoc(
         Add all number in a np.array
 
@@ -229,6 +238,14 @@ PYBIND11_MODULE(dispersion, m) {
 
   m_d.def("disp_2B_TT_ATM_TT", &disp::disp_2B_TT_ATM_TT, R"pbdoc(
         calculate -D4 2Body (TT) ATM (TT) damping dispersion
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C6s_ATM"),
+          py::arg("pA"), py::arg("cA"), py::arg("C6s_A"), py::arg("C6s_ATM_A"),
+          py::arg("pB"), py::arg("cB"), py::arg("C6s_B"), py::arg("C6s_ATM_B"),
+          py::arg("params_2B"), py::arg("params_ATM"));
+
+  m_d.def("disp_2B_TT_ATM_CHG", &disp::disp_2B_TT_ATM_CHG, R"pbdoc(
+        calculate -D4 2Body (TT) ATM (CHG) damping dispersion
         )pbdoc",
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C6s_ATM"),
           py::arg("pA"), py::arg("cA"), py::arg("C6s_A"), py::arg("C6s_ATM_A"),
