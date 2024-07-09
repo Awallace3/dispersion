@@ -1276,10 +1276,10 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                     (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
                     (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2)); 
 
-        f6_ij = f_n_TT(b_ij, dis, 6);
-        f8_ij = f_n_TT(b_ij, dis, 8);
+        f6_ij = f_n_TT(b_ij, pow(dis, 0.5), 6);
+        // f8_ij = f_n_TT(b_ij, pow(dis, 0.5), 8);
         C8 = -C6s(i, j) * 3 * pow(Q_A * Q_B, 0.5);
-        de = s6 * f6_ij * C6s(i, j) / pow(dis, 3) + s8 * f8_ij * C8 / pow(dis, 4);
+        de = s6 * f6_ij * C6s(i, j) / pow(dis, 3) + s8 * f6_ij * C8 / pow(dis, 4);
         energy -= de;
         // printf("f6_ij: %f, C6: %f, e6: %f, f8_ij: %f, C8: %f, e8: %f, de: %f, e: %f\n", f6_ij, C6s(i, j), e6, f8_ij, C8, e8, de, energy);
       }
