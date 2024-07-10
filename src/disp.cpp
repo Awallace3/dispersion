@@ -1143,17 +1143,18 @@ double disp_2B_TT_supra(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                         Ref<VectorXi> monBs, Ref<VectorXd> params) {
   int lattice_points = 1;
   double energy = 0;
-  double Q_A, Q_B, rrij, r0ij, dis;
+  double Q_A, Q_B, dis;
   int el1, el2, i, j, k, A, B;
   double s6, s8, de;
-  double b1, b2, f6_ij, f8_ij, vdw_i, vdw_j, C8, b_ij;
+  double b1, b2, vdw_i, vdw_j, C8, b_ij, f6_ij, f8_ij;
   s6 = params[0];
   s8 = params[1];
   b1 = params[2];
   b2 = params[3];
+
 #pragma omp parallel for shared(C6s, carts, params, pos) private(              \
-        A, B, i, j, k, el1, el2, Q_A, Q_B, rrij, r0ij, dis, f6_ij, f8_ij,      \
-            vdw_i, vdw_j, C8, b_ij, b1, b2, de) reduction(+ : energy)
+        A, B, i, j, k, el1, el2, Q_A, Q_B, dis, f6_ij, f8_ij, vdw_i, vdw_j,    \
+            C8, b_ij, de) reduction(+ : energy)
   for (A = 0; A < monAs.size(); A++) {
     i = monAs[A];
     el1 = pos[i];
@@ -1171,9 +1172,10 @@ double disp_2B_TT_supra(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
 
         f6_ij = f_n_TT(b_ij, pow(dis, 0.5), 6);
+        f8_ij = f_n_TT(b_ij, pow(dis, 0.5), 8);
         C8 = -C6s(i, j) * 3 * pow(Q_A * Q_B, 0.5);
         de = s6 * f6_ij * C6s(i, j) / pow(dis, 3) +
-             s8 * f6_ij * C8 / pow(dis, 4);
+             s8 * f8_ij * C8 / pow(dis, 4);
         energy -= de;
       }
     }
@@ -1246,7 +1248,7 @@ disp_2B_C6_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 };
 
 double factorial(const int n) {
-  double f = 1;
+  double f = 1.0;
   for (int i = 1; i <= n; ++i) {
     f *= i;
   }
@@ -1255,8 +1257,8 @@ double factorial(const int n) {
 
 double f_n_TT_summation(double R_b_ij, int n) {
   // start v=1 because k=0 -> 1
-  double v = 0;
-  for (int k = 1; k <= n; k++) {
+  double v = 0.0;
+  for (int k = 0; k <= n; k++) {
     v += pow(R_b_ij, k) / factorial(k);
   }
   return v;
@@ -1275,6 +1277,8 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   int el1, el2, i, j, k;
   double s6, s8, b1, b2, de, f6_ij, f8_ij, vdw_i, vdw_j, C8, Q_A, Q_B, b_ij,
       dis;
+  double s_42 = 1.0;
+
   s6 = params[0];
   s8 = params[1];
   b1 = params[2];
@@ -1285,11 +1289,19 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   for (i = 0; i < n; i++) {
     el1 = pos[i];
     vdw_i = constants::vdw_ls[el1];
+    if (vdw_i == 0.0) {
+      std::cout << "Error: vdw_i is 0.0" << std::endl;
+    }
     Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    // Q_A = s_42 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1];
     for (j = 0; j < i; j++) {
       el2 = pos[j];
       vdw_j = constants::vdw_ls[el2];
+      if (vdw_j == 0.0) {
+        std::cout << "Error: vdw_j is 0.0" << std::endl;
+      }
       Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
+      // Q_B = s_42 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1];
       for (k = 0; k < lattice_points; k++) {
         b_ij = b1 * (vdw_i + vdw_j) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
         dis = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
@@ -1297,17 +1309,18 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
 
         f6_ij = f_n_TT(b_ij, pow(dis, 0.5), 6);
-        // f8_ij = f_n_TT(b_ij, pow(dis, 0.5), 8);
-        C8 = -C6s(i, j) * 3 * pow(Q_A * Q_B, 0.5);
+        f8_ij = f_n_TT(b_ij, pow(dis, 0.5), 8);
+        // C8 = -3 * C6s(i, j) * pow(Q_A * Q_B, 0.5);
+        C8 = -3 * C6s(i, j) * Q_A * Q_B;
         de = s6 * f6_ij * C6s(i, j) / pow(dis, 3) +
-             s8 * f6_ij * C8 / pow(dis, 4);
-        energy -= de;
+             s8 * f8_ij * C8 / pow(dis, 4);
+        energy += de;
         // printf("f6_ij: %f, C6: %f, e6: %f, f8_ij: %f, C8: %f, e8: %f, de: %f,
         // e: %f\n", f6_ij, C6s(i, j), e6, f8_ij, C8, e8, de, energy);
       }
     }
   };
-  return energy;
+  return -energy;
 };
 
 double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
@@ -1371,7 +1384,6 @@ double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   };
   return energy;
 };
-
 
 double disp_2B_TT_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                         py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
