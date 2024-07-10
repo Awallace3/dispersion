@@ -59,13 +59,16 @@ PYBIND11_MODULE(dispersion, m) {
   auto m_d = m.def_submodule("disp", "dispersion submodule");
   m_d.def("factorial", &disp::factorial, R"pbdoc(
         Calculate factorial of a number
-        )pbdoc", py::arg("n"));
+        )pbdoc",
+          py::arg("n"));
   m_d.def("f_n_TT", &disp::f_n_TT, R"pbdoc(
         calculate f_n for TT damping
-        )pbdoc", py::arg("b_ij"), py::arg("R_ij"), py::arg("n"));
+        )pbdoc",
+          py::arg("b_ij"), py::arg("R_ij"), py::arg("n"));
   m_d.def("f_n_TT_summation", &disp::f_n_TT_summation, R"pbdoc(
         calculate f_n for TT damping summation
-        )pbdoc", py::arg("R_b_ij"), py::arg("n"));
+        )pbdoc",
+          py::arg("R_b_ij"), py::arg("n"));
   m_d.def("np_array_sum_test", &disp::np_array_sum_test, R"pbdoc(
         Add all number in a np.array
 
@@ -108,6 +111,25 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("pA"),
           py::arg("cA"), py::arg("C6s_A"), py::arg("pB"), py::arg("cB"),
           py::arg("C6s_B"), py::arg("params"));
+
+  m_d.def("disp_2B_BJ_supra", &disp::disp_2B_BJ_supra, R"pbdoc(
+        calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
+        for a dimer broken into two monomers with only dimer C6s
+        )pbdoc",
+          py::arg("pos"), 
+          py::arg("carts"), 
+          py::arg("C6s"), 
+          py::arg("monAs"),
+          py::arg("monBs"), 
+          py::arg("params")
+          );
+
+  m_d.def("disp_2B_TT_supra", &disp::disp_2B_TT_supra, R"pbdoc(
+        calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
+        for a dimer broken into two monomers with only dimer C6s
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("monAs"),
+          py::arg("monBs"), py::arg("params"));
 
   m_d.def("vals_for_SR", &disp::vals_for_SR, R"pbdoc(
         calculate values for SR
