@@ -1248,7 +1248,7 @@ disp_2B_C6_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 };
 
 double factorial(const int n) {
-  double f = 1.0;
+  long f = 1;
   for (int i = 1; i <= n; ++i) {
     f *= i;
   }
@@ -1258,7 +1258,9 @@ double factorial(const int n) {
 double f_n_TT_summation(double R_b_ij, int n) {
   // start v=1 because k=0 -> 1
   double v = 0.0;
-  for (int k = 0; k <= n; k++) {
+  // for (int k = 0; k <= n; k++) {
+  // Lori has k=2 -> n, /theoryfs2/ds/loriab/chem/ttdamp/damp.cc
+  for (int k = 0; k < n + 1; k++) {
     v += pow(R_b_ij, k) / factorial(k);
   }
   return v;
@@ -1278,30 +1280,33 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   double s6, s8, b1, b2, de, f6_ij, f8_ij, vdw_i, vdw_j, C8, Q_A, Q_B, b_ij,
       dis;
   double s_42 = 1.0;
+  // if using experimental vdw, could use 0.9 scaling
 
   s6 = params[0];
   s8 = params[1];
   b1 = params[2];
   b2 = params[3];
-#pragma omp parallel for shared(C6s, carts, params, pos) private(              \
-        i, j, k, el1, el2, Q_A, Q_B, b_ij, dis, vdw_i, vdw_j, C8, de, f6_ij,   \
-            f8_ij) reduction(+ : energy)
+#pragma omp parallel for shared(C6s, carts, params, pos, s6, s8, b1, b2,       \
+                                    s_42) private(i, j, k, el1, el2, Q_A, Q_B, \
+                                                      b_ij, dis, vdw_i, vdw_j, \
+                                                      C8, de, f6_ij, f8_ij)    \
+    reduction(+ : energy)
   for (i = 0; i < n; i++) {
     el1 = pos[i];
     vdw_i = constants::vdw_ls[el1];
     if (vdw_i == 0.0) {
       std::cout << "Error: vdw_i is 0.0" << std::endl;
     }
-    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
-    // Q_A = s_42 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1];
+    // Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    Q_A = s_42 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1];
     for (j = 0; j < i; j++) {
       el2 = pos[j];
       vdw_j = constants::vdw_ls[el2];
       if (vdw_j == 0.0) {
         std::cout << "Error: vdw_j is 0.0" << std::endl;
       }
-      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
-      // Q_B = s_42 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1];
+      // Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
+      Q_B = s_42 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1];
       for (k = 0; k < lattice_points; k++) {
         b_ij = b1 * (vdw_i + vdw_j) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
         dis = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
@@ -1310,11 +1315,14 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 
         f6_ij = f_n_TT(b_ij, pow(dis, 0.5), 6);
         f8_ij = f_n_TT(b_ij, pow(dis, 0.5), 8);
-        // C8 = -3 * C6s(i, j) * pow(Q_A * Q_B, 0.5);
-        C8 = -3 * C6s(i, j) * Q_A * Q_B;
+        C8 = -3 * C6s(i, j) * pow(Q_A * Q_B, 0.5);
+        // C8 = -3 * C6s(i, j) * Q_A * Q_B;
         de = s6 * f6_ij * C6s(i, j) / pow(dis, 3) +
              s8 * f8_ij * C8 / pow(dis, 4);
         energy += de;
+        if (j != i ) {
+          energy += de;
+        }
         // printf("f6_ij: %f, C6: %f, e6: %f, f8_ij: %f, C8: %f, e8: %f, de: %f,
         // e: %f\n", f6_ij, C6s(i, j), e6, f8_ij, C8, e8, de, energy);
       }
