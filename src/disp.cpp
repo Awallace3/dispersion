@@ -1,6 +1,6 @@
 #include "disp.hpp"
 #include "constants.hpp"
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <iostream>
 #include <omp.h>
 #include <pybind11/eigen.h>
@@ -105,6 +105,56 @@ double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   d = disp_2B(pos, carts, C6s, params);
   a = disp_2B(pA, cA, C6s_A, params);
   b = disp_2B(pB, cB, C6s_B, params);
+  return d - a - b;
+};
+
+double disp_2B_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+               py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params) {
+  int lattice_points = 1;
+  double energy = 0;
+  int n = pos.size();
+  double Q_A, Q_B, rrij, r0ij, dis;
+  int el1, el2, i, j, k;
+  double s6, s8, a1, a2, de, edisp, t6, t8;
+  s6 = params[0];
+  s8 = params[1];
+#pragma omp parallel for shared(C6s, carts, params, pos) private(              \
+        i, j, k, el1, el2, Q_A, Q_B, rrij, r0ij, dis, t6, t8, de)              \
+    reduction(+ : energy)
+  for (i = 0; i < n; i++) {
+    el1 = pos[i];
+    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    for (j = 0; j < i; j++) {
+      el2 = pos[j];
+      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
+      for (k = 0; k < lattice_points; k++) {
+        rrij = 3 * Q_A * Q_B;
+        dis = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+              (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+              (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+
+        t6 = 1 / (pow(dis, 3));
+        t8 = 1 / (pow(dis, 4));
+
+        edisp = s6 * t6 + s8 * rrij * t8;
+
+        de = -C6s(i, j) * edisp * 0.5;
+        energy += de;
+      }
+    }
+  };
+  return energy *= 2;
+};
+
+double disp_2B_dimer_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                     py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
+                     py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,
+                     Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
+                     py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params) {
+  double d, a, b;
+  d = disp_2B_NO_DAMPING(pos, carts, C6s, params);
+  a = disp_2B_NO_DAMPING(pA, cA, C6s_A, params);
+  b = disp_2B_NO_DAMPING(pB, cB, C6s_B, params);
   return d - a - b;
 };
 

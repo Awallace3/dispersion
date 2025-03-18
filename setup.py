@@ -1,11 +1,11 @@
 import os
 import re
-import subprocess
 import sys
+import subprocess
 from pathlib import Path
-
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
+from setuptools import Extension, setup, find_packages
 
 # Convert distutils Windows platform specifiers to CMake -A arguments
 PLAT_TO_CMAKE = {
@@ -131,10 +131,26 @@ setup(
     author="Austin Wallace",
     author_email="austinwallace196@gmail.com",
     description="Dispersion module in C++ for Python",
-    long_description="",
+    long_description="""
+    Dispersion module for calculating dispersion energies using C++ for performance-critical operations.
+    Includes Python utilities for molecular structure handling, analysis, and visualization.
+    """,
+    packages=find_packages(),
     ext_modules=[CMakeExtension("dispersion"), CMakeExtension("disp")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
-    extras_require={"test": ["pytest>=6.0"]},
+    extras_require={
+        "test": ["pytest>=6.0"],
+    },
     python_requires=">=3.8",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Topic :: Scientific/Engineering :: Chemistry",
+        "Topic :: Scientific/Engineering :: Physics",
+    ],
 )
