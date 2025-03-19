@@ -8,4 +8,4 @@ computing dispersion energies.
   parameters
 - [ ] Compute -D4 2-body and ATM dispersion energies
     - [x] Compute ATM (CHG) dispersion energy
-    - [ ] Compute ATM with another damping functions
+    - [ ] Compute ATM (TT) dispersion energy
