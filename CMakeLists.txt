@@ -13,6 +13,8 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 find_package(OpenMP REQUIRED)
 
+add_subdirectory(dftd4)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/pybind11/include)
 
 include(GNUInstallDirs)

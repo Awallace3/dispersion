@@ -2,3 +2,6 @@
     path = pybind11
     url = https://github.com/pybind/pybind11.git
     branch = master
+[submodule "dftd4"]
+	path = dftd4
+	url = git@github.com:Awallace3/dftd4.git

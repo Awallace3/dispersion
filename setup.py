@@ -7,6 +7,13 @@ from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 from setuptools import Extension, setup, find_packages
 
+# DFTD4 binary
+from setuptools.command.install import install
+from setuptools.command.develop import develop
+import shutil
+import site
+import atexit
+
 # Convert distutils Windows platform specifiers to CMake -A arguments
 PLAT_TO_CMAKE = {
     "win32": "Win32",
@@ -34,7 +41,8 @@ class CMakeBuild(build_ext):
         # Using this requires trailing slash for auto-detection & inclusion of
         # auxiliary "native" libs
 
-        debug = int(os.environ.get("DEBUG", 0)) if self.debug is None else self.debug
+        debug = int(os.environ.get("DEBUG", 0)
+                    ) if self.debug is None else self.debug
         cfg = "Debug" if debug else "Release"
 
         # CMake lets you override the generator - we need to check this.
@@ -53,10 +61,12 @@ class CMakeBuild(build_ext):
         # Adding CMake arguments set as environment variable
         # (needed e.g. to build for ARM OSx on conda-forge)
         if "CMAKE_ARGS" in os.environ:
-            cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
+            cmake_args += [
+                item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
         # In this example, we pass in the version to C++. You might not need to.
-        cmake_args += [f"-DEXAMPLE_VERSION_INFO={self.distribution.get_version()}"]
+        cmake_args += [
+            f"-DEXAMPLE_VERSION_INFO={self.distribution.get_version()}"]
 
         if self.compiler.compiler_type != "msvc":
             # Using Ninja-build since it a) is available as a wheel and b)
@@ -78,7 +88,8 @@ class CMakeBuild(build_ext):
 
         else:
             # Single config generators are handled "normally"
-            single_config = any(x in cmake_generator for x in {"NMake", "Ninja"})
+            single_config = any(
+                x in cmake_generator for x in {"NMake", "Ninja"})
 
             # CMake allows an arch-in-generator style for backward compatibility
             contains_arch = any(x in cmake_generator for x in {"ARM", "Win64"})
@@ -100,7 +111,8 @@ class CMakeBuild(build_ext):
             # Cross-compile support for macOS - respect ARCHFLAGS if set
             archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
             if archs:
-                cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
+                cmake_args += [
+                    "-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         # across all generators.
@@ -123,6 +135,113 @@ class CMakeBuild(build_ext):
         )
 
 
+class PostInstallCommand(install):
+    """Post-installation for installation mode for DFTD4 install"""
+
+    def run(self):
+        # Run the standard install first
+        install.run(self)
+
+        # Get the conda bin path
+        conda_prefix = os.environ.get("CONDA_PREFIX")
+        if conda_prefix:
+            # Path to your binary after build
+            source_binary = os.path.join("build", "dftd4", "app", "dftd4")
+            # Destination path in conda bin
+            dest_path = os.path.join(conda_prefix, "bin")
+
+            if os.path.exists(source_binary):
+                print(f"Copying {source_binary} to {dest_path}")
+                if not os.path.exists(dest_path):
+                    os.makedirs(dest_path)
+                shutil.copy2(source_binary, dest_path)
+                # Make sure it's executable
+                binary_path = os.path.join(dest_path, "dftd4")
+                if os.path.exists(binary_path):
+                    os.chmod(binary_path, 0o755)
+                print(f"Successfully installed dftd4 binary to {dest_path}")
+            else:
+                print(
+                    f"Warning: {source_binary} does not exist, skipping binary installation"
+                )
+        else:
+            print(
+                "Not in a conda environment, skipping binary installation to conda bin"
+            )
+
+
+class CustomInstallCommand(install):
+    """Custom install command to copy binary to conda bin."""
+
+    def run(self):
+        install.run(self)
+        self._copy_binary()
+
+    def _copy_binary(self):
+        conda_prefix = os.environ.get("CONDA_PREFIX")
+        if conda_prefix:
+            source_binary = os.path.join("build", "dftd4", "app", "dftd4")
+            dest_path = os.path.join(conda_prefix, "bin")
+
+            if os.path.exists(source_binary):
+                if not os.path.exists(dest_path):
+                    os.makedirs(dest_path)
+                dest_file = os.path.join(dest_path, "dftd4")
+                shutil.copy2(source_binary, dest_file)
+                os.chmod(dest_file, 0o755)
+
+                # Record the installed binary path
+                self.distribution.data_files = self.distribution.data_files or []
+                self.distribution.data_files.append(("bin", [dest_file]))
+
+                print(f"Successfully installed dftd4 binary to {dest_path}")
+
+                # Create .dist-info directory record
+                record_file = os.path.join(
+                    self.install_lib,
+                    f"{self.distribution.get_name()}-{self.distribution.get_version()}.dist-info",
+                    "installed-files.txt",
+                )
+                with open(record_file, "a") as f:
+                    f.write(f"{dest_file}\n")
+            else:
+                print(
+                    f"Warning: {source_binary} does not exist, skipping binary installation"
+                )
+        else:
+            print(
+                "Not in a conda environment, skipping binary installation to conda bin"
+            )
+
+
+# For development installs
+class CustomDevelopCommand(develop):
+    """Custom develop command to copy binary to conda bin."""
+
+    def run(self):
+        develop.run(self)
+        conda_prefix = os.environ.get("CONDA_PREFIX")
+        if conda_prefix:
+            source_binary = os.path.join("build", "dftd4", "app", "dftd4")
+            dest_path = os.path.join(conda_prefix, "bin")
+
+            if os.path.exists(source_binary):
+                if not os.path.exists(dest_path):
+                    os.makedirs(dest_path)
+                dest_file = os.path.join(dest_path, "dftd4")
+                shutil.copy2(source_binary, dest_file)
+                os.chmod(dest_file, 0o755)
+                print(f"Successfully installed dftd4 binary to {dest_path}")
+            else:
+                print(
+                    f"Warning: {source_binary} does not exist, skipping binary installation"
+                )
+        else:
+            print(
+                "Not in a conda environment, skipping binary installation to conda bin"
+            )
+
+
 # The information here can also be placed in setup.cfg - better separation of
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
@@ -137,7 +256,10 @@ setup(
     """,
     packages=find_packages(),
     ext_modules=[CMakeExtension("dispersion"), CMakeExtension("disp")],
-    cmdclass={"build_ext": CMakeBuild},
+    cmdclass={
+        "build_ext": CMakeBuild,
+        "install": PostInstallCommand,
+    },
     zip_safe=False,
     extras_require={
         "test": ["pytest>=6.0"],
