@@ -113,13 +113,13 @@ double disp_2B_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   int lattice_points = 1;
   double energy = 0;
   int n = pos.size();
-  double Q_A, Q_B, rrij, r0ij, dis;
+  double Q_A, Q_B, rrij, dis;
   int el1, el2, i, j, k;
-  double s6, s8, a1, a2, de, edisp, t6, t8;
+  double s6, s8, de, edisp, t6, t8;
   s6 = params[0];
   s8 = params[1];
 #pragma omp parallel for shared(C6s, carts, params, pos) private(              \
-        i, j, k, el1, el2, Q_A, Q_B, rrij, r0ij, dis, t6, t8, de)              \
+        i, j, k, el1, el2, Q_A, Q_B, rrij, dis, t6, t8, de)                    \
     reduction(+ : energy)
   for (i = 0; i < n; i++) {
     el1 = pos[i];
@@ -1223,9 +1223,81 @@ double disp_ATM_CHG_trimer_nambe(Ref<VectorXi> pos,
         r3 = r2 * r1;
         r5 = r3 * r2;
         fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0));
+        printf("fdmp: %f\n", fdmp);
         ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
                    (-dis_ij + dis_jk + dis_ik) / r5 +
                1.0 / r3);
+        energy -= 6 * (ang * fdmp * c9 * triple / 6.0);
+      };
+    };
+  };
+  return energy;
+};
+
+double disp_ATM_TT_trimer_nambe(Ref<VectorXi> pos,
+                                py::EigenDRef<MatrixXd> carts,
+                                py::EigenDRef<MatrixXd> C6s_ATM,
+                                Ref<VectorXi> pA, Ref<VectorXi> pB,
+                                Ref<VectorXi> pC, Ref<VectorXd> params) {
+  /* int lattice_points = 1; */
+  double energy = 0.0;
+  double r1, r2, r3, r5, dis_ij, dis_jk, dis_ik, triple, c9, fdmp,
+      ang;                                // private
+  int el1, el2, el3, i, j, k, n1, n2, n3; // private
+  double b1, b2, s9;                      // public
+  double vdw_i, vdw_j, vdw_k, b_ij, b_ik, b_jk, f6_ij, f6_ik,
+      f6_jk; // private
+
+  b1 = params[0];
+  b2 = params[1];
+  s9 = params[2];
+#pragma omp parallel for shared(                                               \
+        C6s_ATM, carts, params, pos, b1, b2,                                   \
+            s9) private(el1, el2, el3, i, j, k, n1, n2, n3, r1, r2, r3, r5,    \
+                            dis_ij, dis_jk, dis_ik, triple, c9, fdmp, ang,     \
+                            vdw_i, vdw_j, vdw_k) reduction(+ : energy)
+  for (n1 = 0; n1 < pA.size(); n1++) {
+    i = pA[n1];
+    el1 = pos[i];
+    vdw_i = constants::vdw_ls[el1];
+    for (n2 = 0; n2 < pB.size(); n2++) {
+      j = pB[n2];
+      el2 = pos[j];
+      vdw_j = constants::vdw_ls[el2];
+      b_ij = b1 * (vdw_i + vdw_j) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
+      dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+               (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+      f6_ij = f_n_TT(b_ij, pow(dis_ij, 0.5), 6);
+      for (n3 = 0; n3 < pC.size(); n3++) {
+        k = pC[n3];
+        el3 = pos[k];
+        vdw_k = constants::vdw_ls[el3];
+        b_ik = -b1 * (vdw_i + vdw_k) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
+        b_jk = -b1 * (vdw_j + vdw_k) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
+        c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
+        triple = triple_scale(i, j, k);
+        dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
+                 (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
+                 (carts(i, 2) - carts(k, 2)) * (carts(i, 2) - carts(k, 2));
+        dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
+                 (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
+                 (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
+        f6_ik = f_n_TT(b_ik, pow(dis_ik, 0.5), 6);
+        f6_jk = f_n_TT(b_jk, pow(dis_jk, 0.5), 6);
+        r2 = dis_ij * dis_ik * dis_jk;
+        if (r2 < 1e-8) {
+          std::cout << "r2 too small" << std::endl;
+          continue;
+        };
+        r1 = pow(r2, 0.5);
+        r3 = r2 * r1;
+        r5 = r3 * r2;
+        ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
+                   (-dis_ij + dis_jk + dis_ik) / r5 +
+               1.0 / r3);
+        fdmp = f6_ij * f6_ik * f6_jk;
+        printf("fdmp: %f\n", fdmp);
         energy -= 6 * (ang * fdmp * c9 * triple / 6.0);
       };
     };

@@ -236,6 +236,12 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s_ATM"), py::arg("pA"),
           py::arg("pB"), py::arg("pC"), py::arg("params"));
 
+  m_d.def("disp_ATM_TT_trimer_nambe", &disp::disp_ATM_TT_trimer_nambe,
+          R"pbdoc(
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s_ATM"), py::arg("pA"),
+          py::arg("pB"), py::arg("pC"), py::arg("params"));
+
   m_d.def("disp_2B_BJ_ATM_CHG", &disp::disp_2B_BJ_ATM_CHG, R"pbdoc(
         calculate -D4 2Body (BJ) ATM (CHG) damping dispersion
         )pbdoc",
