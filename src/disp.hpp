@@ -107,6 +107,11 @@ double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s_ATM_B,
                           Ref<VectorXd> params);
 
+double disp_ATM_CHG_trimer_nambe(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
+                           Ref<VectorXi> pB, Ref<VectorXi> pC,
+                           Ref<VectorXd> params);
+
 double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s,
                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,

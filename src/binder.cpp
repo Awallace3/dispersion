@@ -129,13 +129,8 @@ PYBIND11_MODULE(dispersion, m) {
         calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
         for a dimer broken into two monomers with only dimer C6s
         )pbdoc",
-          py::arg("pos"), 
-          py::arg("carts"), 
-          py::arg("C6s"), 
-          py::arg("monAs"),
-          py::arg("monBs"), 
-          py::arg("params")
-          );
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("monAs"),
+          py::arg("monBs"), py::arg("params"));
 
   m_d.def("disp_2B_TT_supra", &disp::disp_2B_TT_supra, R"pbdoc(
         calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
@@ -234,6 +229,12 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s_ATM"), py::arg("pA"),
           py::arg("cA"), py::arg("C6s_ATM_A"), py::arg("pB"), py::arg("cB"),
           py::arg("C6s_ATM_B"), py::arg("params"));
+
+  m_d.def("disp_ATM_CHG_trimer_nambe", &disp::disp_ATM_CHG_trimer_nambe,
+          R"pbdoc(
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s_ATM"), py::arg("pA"),
+          py::arg("pB"), py::arg("pC"), py::arg("params"));
 
   m_d.def("disp_2B_BJ_ATM_CHG", &disp::disp_2B_BJ_ATM_CHG, R"pbdoc(
         calculate -D4 2Body (BJ) ATM (CHG) damping dispersion

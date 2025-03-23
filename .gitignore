@@ -13,3 +13,8 @@ cache
 .clangd
 \.cache
 pypi_build.sh
+.ATM
+dat.xyz
+data1.json
+tests/.ATM
+tests/data1.json

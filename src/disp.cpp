@@ -109,7 +109,7 @@ double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 };
 
 double disp_2B_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-               py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params) {
+                          py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params) {
   int lattice_points = 1;
   double energy = 0;
   int n = pos.size();
@@ -146,11 +146,11 @@ double disp_2B_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy *= 2;
 };
 
-double disp_2B_dimer_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                     py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
-                     py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,
-                     Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
-                     py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params) {
+double disp_2B_dimer_NO_DAMPING(
+    Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+    py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA, py::EigenDRef<MatrixXd> cA,
+    py::EigenDRef<MatrixXd> C6s_A, Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
+    py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params) {
   double d, a, b;
   d = disp_2B_NO_DAMPING(pos, carts, C6s, params);
   a = disp_2B_NO_DAMPING(pA, cA, C6s_A, params);
@@ -1166,6 +1166,73 @@ double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return d - a - b;
 };
 
+double disp_ATM_CHG_trimer_nambe(Ref<VectorXi> pos,
+                                 py::EigenDRef<MatrixXd> carts,
+                                 py::EigenDRef<MatrixXd> C6s_ATM,
+                                 Ref<VectorXi> pA, Ref<VectorXi> pB,
+                                 Ref<VectorXi> pC, Ref<VectorXd> params) {
+  /* int lattice_points = 1; */
+  double energy = 0;
+  double Q_A, Q_B, Q_C, r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij, dis_jk,
+      dis_ik, triple, c9, fdmp, ang;      // private
+  int el1, el2, el3, i, j, k, n1, n2, n3; // private
+  double a1, a2, s9, alph = 16.0;         // public
+
+  a1 = params[0];
+  a2 = params[1];
+  s9 = params[2];
+#pragma omp parallel for shared(                                               \
+        C6s_ATM, carts, params, pos, a1, a2, s9,                               \
+            alph) private(el1, el2, el3, i, j, k, n1, n2, n3, Q_A, Q_B, Q_C,   \
+                              r0ij, r0ik, r0jk, r0, r1, r2, r3, r5, dis_ij,    \
+                              dis_jk, dis_ik, triple, c9, fdmp, ang)           \
+    reduction(+ : energy)
+  for (n1 = 0; n1 < pA.size(); n1++) {
+    i = pA[n1];
+    el1 = pos[i];
+    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    for (n2 = 0; n2 < pB.size(); n2++) {
+      j = pB[n2];
+      el2 = pos[j];
+      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
+      r0ij = a1 * pow(3 * Q_A * Q_B, 0.5) + a2;
+      dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+               (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+      for (n3 = 0; n3 < pC.size(); n3++) {
+        k = pC[n3];
+        el3 = pos[k];
+        Q_C = pow(0.5 * pow(el3, 0.5) * constants::r4r2_ls[el3 - 1], 0.5);
+        c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
+        r0ik = a1 * pow(3 * Q_A * Q_C, 0.5) + a2;
+        r0jk = a1 * pow(3 * Q_B * Q_C, 0.5) + a2;
+        r0 = r0ij * r0ik * r0jk;
+        triple = triple_scale(i, j, k);
+        dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
+                 (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
+                 (carts(i, 2) - carts(k, 2)) * (carts(i, 2) - carts(k, 2));
+        dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
+                 (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
+                 (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
+        r2 = dis_ij * dis_ik * dis_jk;
+        if (r2 < 1e-8) {
+          std::cout << "r2 too small" << std::endl;
+          continue;
+        };
+        r1 = pow(r2, 0.5);
+        r3 = r2 * r1;
+        r5 = r3 * r2;
+        fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0));
+        ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
+                   (-dis_ij + dis_jk + dis_ik) / r5 +
+               1.0 / r3);
+        energy -= 6 * (ang * fdmp * c9 * triple / 6.0);
+      };
+    };
+  };
+  return energy;
+};
+
 double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s,
                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
@@ -1370,7 +1437,7 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         de = s6 * f6_ij * C6s(i, j) / pow(dis, 3) +
              s8 * f8_ij * C8 / pow(dis, 4);
         energy += de;
-        if (j != i ) {
+        if (j != i) {
           energy += de;
         }
         // printf("f6_ij: %f, C6: %f, e6: %f, f8_ij: %f, C8: %f, e8: %f, de: %f,
