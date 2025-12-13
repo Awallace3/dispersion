@@ -185,6 +185,72 @@ def acquire_c6s(
     return C6s, C8s, pairs, e, C6s_ATM
 
 
+def qcel_2B(
+    qcel_mol,
+    paramaters={
+        "s6": 1.0,
+        "s8": 1.61679827,
+        "a1": 0.44959224,
+        "a2": 3.35743605,
+        "s9": 1.0,
+    },
+    dftd4_bin="dftd4",
+):
+    """
+    if 'a1' and 'a2' then mCHG damping, elif 'b1' and 'b2' TT damping
+    """
+    import dispersion
+
+    c6s, c8s, _ = qcel_mol_acquire_c6s(
+        qcel_mol,
+        dftd4_bin=dftd4_bin,
+    )
+    pA = np.array(
+        [i for i in range(len(qcel_mol.get_fragment(0).atomic_numbers))], dtype=np.int32
+    )
+    pB = np.array(
+        [
+            i
+            for i in range(
+                len(pA), len(pA) + len(qcel_mol.get_fragment(1).atomic_numbers)
+            )
+        ],
+        dtype=np.int32,
+    )
+    pC = np.array(
+        [
+            i
+            for i in range(
+                len(pA) + len(pB),
+                len(pA) + len(pB) + len(qcel_mol.get_fragment(2).atomic_numbers),
+            )
+        ],
+        dtype=np.int32,
+    )
+    params = np.zeros(3, dtype=np.float64)
+    if "a1" in paramaters:
+        params[0] = paramaters["a1"]
+        params[1] = paramaters["a2"]
+        params[2] = paramaters["s9"]
+        disp_func = dispersion.disp.disp_ATM_CHG_trimer_nambe
+    elif "b1" in paramaters:
+        params[0] = paramaters["b1"]
+        params[1] = paramaters["b2"]
+        params[2] = paramaters["s9"]
+        disp_func = dispersion.disp.disp_ATM_TT_trimer_nambe
+    else:
+        raise ValueError("Unknown parameters")
+    nambe_ATM = disp_func(
+        np.array(qcel_mol.atomic_numbers, dtype=np.int32),
+        np.array(qcel_mol.geometry, dtype=np.float64),
+        c6s_atm,
+        pA,
+        pB,
+        pC,
+        params,
+    )
+    return nambe_ATM
+
 def qcel_nambe_ATM(
     qcel_mol,
     paramaters={
@@ -227,7 +293,6 @@ def qcel_nambe_ATM(
         dtype=np.int32,
     )
     params = np.zeros(3, dtype=np.float64)
-    damping = ""
     if "a1" in paramaters:
         params[0] = paramaters["a1"]
         params[1] = paramaters["a2"]
