@@ -29,9 +29,18 @@ def has_cpp_extensions():
         return False
 
 
-def calculate_dispersion_energy(positions, cartesians, c6s, method="BJ", params=None):
+def calculate_dispersion_energy(
+    positions,
+    cartesians,
+    c6s,
+    method="S",
+    damping_function="BJ",
+    params=None,
+    monAs=[],
+    monBs=[],
+):
     """
-    Calculate dispersion energy using the specified method.
+    Calculate dispersion energy using the specified damping_function.
 
     Parameters
     ----------
@@ -42,14 +51,20 @@ def calculate_dispersion_energy(positions, cartesians, c6s, method="BJ", params=
     c6s : numpy.ndarray
         C6 coefficient matrix
     method : str
-        Method to use: 'BJ' or 'TT'
+        Method to use: 'S' for supermolecular. 'I' for intermolecular.
+    damping_function : str
+        damping_function to use: 'BJ' or 'TT'
     params : numpy.ndarray, optional
         Parameters for dispersion calculation. If None, default parameters are used.
+    monAs : list, required for "I"
+        Indices of monomer A atoms (used for intermolecular calculations)
+    monBs : list, optional for "I"
+        Indices of monomer B atoms (used for intermolecular calculations)
 
     Returns
     -------
     float
-        Dispersion energy in kcal/mol
+        Dispersion energy in ha
     """
     if not has_cpp_extensions():
         raise ImportError(
@@ -59,19 +74,47 @@ def calculate_dispersion_energy(positions, cartesians, c6s, method="BJ", params=
     from . import dispersion
 
     if params is None:
-        if method.upper() == "BJ":
-            params = np.array([1.0, 1.0, 0.55, 2.0], dtype=np.float64)
-        elif method.upper() == "TT":
-            params = np.array([1.0, 1.0, -0.33, 4.39], dtype=np.float64)
-        else:
-            raise ValueError(f"Unknown method: {method}. Use 'BJ' or 'TT'.")
+        if method == "S":
+            if damping_function.upper() == "BJ":
+                # SAPT0/aDZ parameters fit for CCSD(T)/CBS IE
+                params = np.array([1.0, 0.829861, 0.706055, 1.123903], dtype=np.float64)
+            elif damping_function.upper() == "TT":
+                # Common TT damping parameters
+                params = np.array([1.0, 1.0, -0.33, 4.39], dtype=np.float64)
+            else:
+                raise ValueError(f"Unknown damping_function: {damping_function}. Use 'BJ' or 'TT'.")
+        elif method == "I":
+            if damping_function.upper() == "BJ":
+                # SAPT(PBE0)/aTZ parameters fit for CCSD(T)/CBS IE
+                params = np.array([1.0, 0.89529649, -0.82043591, 0.03264695], dtype=np.float64)
+            else:
+                raise ValueError(
+                    "Only 'BJ' damping is supported for intermolecular calculations."
+                )
 
-    if method.upper() == "BJ":
-        energy = dispersion.disp.disp_2B(positions, cartesians, c6s, params)
-    elif method.upper() == "TT":
-        energy = dispersion.disp.disp_2B_TT(positions, cartesians, c6s, params)
-    else:
-        raise ValueError(f"Unknown method: {method}. Use 'BJ' or 'TT'.")
+    if method == "S":
+        if damping_function.upper() == "BJ":
+            energy = dispersion.disp.disp_2B(positions, cartesians, c6s, params)
+        elif damping_function.upper() == "TT":
+            energy = dispersion.disp.disp_2B_TT(positions, cartesians, c6s, params)
+        else:
+            raise ValueError(f"Unknown damping_function: {damping_function}. Use 'BJ' or 'TT'.")
+    elif method == "I":
+        if len(monAs) == 0 or len(monBs) == 0:
+            raise ValueError(
+                "monAs and monBs must be provided for intermolecular calculations."
+                "These must be atom indices for monomer A and B respectively in the dimer geometry."
+            )
+        if damping_function.upper() == "BJ":
+            monAs = np.array(monAs, dtype=np.int32)
+            monBs = np.array(monBs, dtype=np.int32)
+            energy = dispersion.disp.disp_2B_BJ_supra(
+                positions, cartesians, c6s, monAs, monBs, params
+            )
+        else:
+            raise ValueError(
+                "Only 'BJ' damping is supported for intermolecular calculations."
+            )
 
     return energy
 
@@ -250,6 +293,7 @@ def qcel_2B(
         params,
     )
     return nambe_ATM
+
 
 def qcel_nambe_ATM(
     qcel_mol,
