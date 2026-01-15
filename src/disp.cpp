@@ -1372,6 +1372,46 @@ double disp_2B_TT_supra(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy;
 };
 
+double disp_2B_BJ_supra_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                        py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> monAs,
+                        Ref<VectorXi> monBs, Ref<VectorXd> params) {
+  int lattice_points = 1;
+  double energy = 0;
+  double Q_A, Q_B, rrij, dis;
+  int el1, el2, i, j, k, A, B;
+  double s6, s8, de, edisp, t6, t8;
+  s6 = params[0];
+  s8 = params[1];
+#pragma omp parallel for shared(C6s, carts, params, pos) private(              \
+        A, B, i, j, k, el1, el2, Q_A, Q_B, rrij, dis, t6, t8, de)        \
+    reduction(+ : energy)
+  for (A = 0; A < monAs.size(); A++) {
+    i = monAs[A];
+    el1 = pos[i];
+    Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
+    for (B = 0; B < monBs.size(); B++) {
+      j = monBs[B];
+      el2 = pos[j];
+      Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
+      for (k = 0; k < lattice_points; k++) {
+        rrij = 3 * Q_A * Q_B;
+        dis = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
+              (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
+              (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+
+        t6 = 1 / pow(dis, 3);
+        t8 = 1 / pow(dis, 4);
+
+        edisp = s6 * t6 + s8 * rrij * t8;
+
+        de = -C6s(i, j) * edisp * 0.5;
+        energy += de;
+      }
+    }
+  };
+  return energy *= 2;
+};
+
 double disp_2B_BJ_supra(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                         py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> monAs,
                         Ref<VectorXi> monBs, Ref<VectorXd> params) {
