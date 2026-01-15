@@ -132,6 +132,13 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("monAs"),
           py::arg("monBs"), py::arg("params"));
 
+  m_d.def("disp_2B_supra_NO_DAMPING", &disp::disp_2B_supra_NO_DAMPING, R"pbdoc(
+        calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
+        for a dimer broken into two monomers with only dimer C6s without damping
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("monAs"),
+          py::arg("monBs"), py::arg("params"));
+
   m_d.def("disp_2B_TT_supra", &disp::disp_2B_TT_supra, R"pbdoc(
         calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
         for a dimer broken into two monomers with only dimer C6s

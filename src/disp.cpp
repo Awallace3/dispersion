@@ -1372,7 +1372,7 @@ double disp_2B_TT_supra(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy;
 };
 
-double disp_2B_BJ_supra_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+double disp_2B_supra_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                         py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> monAs,
                         Ref<VectorXi> monBs, Ref<VectorXd> params) {
   int lattice_points = 1;
