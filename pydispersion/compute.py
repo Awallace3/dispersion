@@ -108,7 +108,7 @@ def calculate_dispersion_energy(
         if damping_function.upper() == "BJ":
             monAs = np.array(monAs, dtype=np.int32)
             monBs = np.array(monBs, dtype=np.int32)
-            energy = dispersion.disp.disp_2B_BJ_supra(
+            energy = dispersion.disp.disp_2B_BJ_inter(
                 positions, cartesians, c6s, monAs, monBs, params
             )
         else:

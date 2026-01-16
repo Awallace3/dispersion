@@ -128,21 +128,21 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s_ATM_B,
                           Ref<VectorXd> params, Ref<VectorXd> params_ATM);
 
-double disp_2B_supra_NO_DAMPING(Ref<VectorXi> pos,
+double disp_2B_inter_NO_DAMPING(Ref<VectorXi> pos,
                                 py::EigenDRef<MatrixXd> carts,
                                 py::EigenDRef<MatrixXd> C6s,
                                 Ref<VectorXi> monAs, 
                                 Ref<VectorXi> monBs,
                                 Ref<VectorXd> params);
 
-double disp_2B_BJ_supra(Ref<VectorXi> pos,
+double disp_2B_BJ_inter(Ref<VectorXi> pos,
                                 py::EigenDRef<MatrixXd> carts,
                                 py::EigenDRef<MatrixXd> C6s,
                                 Ref<VectorXi> monAs, 
                                 Ref<VectorXi> monBs,
                                 Ref<VectorXd> params);
 
-double disp_2B_TT_supra(Ref<VectorXi> pos,
+double disp_2B_TT_inter(Ref<VectorXi> pos,
                                 py::EigenDRef<MatrixXd> carts,
                                 py::EigenDRef<MatrixXd> C6s,
                                 Ref<VectorXi> monAs, Ref<VectorXi> monBs,
