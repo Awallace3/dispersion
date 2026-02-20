@@ -102,7 +102,7 @@ double disp_2B_XDM(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                    Ref<VectorXd> params) {
   double energy = 0;
   int n = pos.size();
-  double dis, rc;
+  double dis;
   int i, j;
   double a1, a2, de;
   a1 = params[0];
@@ -111,25 +111,22 @@ double disp_2B_XDM(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
         i, j, dis, de) reduction(+ : energy)
   for (i = 0; i < n; i++) {
     for (j = 0; j < i; j++) {
-      dis = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
-            (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
-            (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
+      double dx = carts(i, 0) - carts(j, 0);
+      double dy = carts(i, 1) - carts(j, 1);
+      double dz = carts(i, 2) - carts(j, 2);
+      double d2 = dx * dx + dy * dy + dz * dz;
+      double d6 = d2 * d2 * d2;
+      double d8 = d6 * d2;
+      double d10 = d8 * d2;
+      dis = a1 * RCs(i, j) + a2;
 
-      // de = -C6s(i, j) / (pow(dis, 6) + pow(a1 * RCs(i, j) + a2, 6)) -
-      //      C8s(i, j) / (pow(dis, 8) + pow(a1 * RCs(i, j) + a2, 8)) -
-      //      C10s(i, j) / (pow(dis, 10) + pow(a1 * RCs(i, j) + a2, 10));
-      rc = 1 / 3 *
-           (pow(C8s(i, j) / C6s(i, j), 1.0 / 2.0) +
-            pow(C10s(i, j) / C8s(i, j), 1.0 / 2.0) +
-            pow(C10s(i, j) / C6s(i, j), 1.0 / 4.0));
-
-      de = C6s(i, j) / (pow(dis, 6) + pow(a1 * rc + a2, 6)) +
-           C8s(i, j) / (pow(dis, 8) + pow(a1 * rc + a2, 8)) +
-           C10s(i, j) / (pow(dis, 10) + pow(a1 * rc + a2, 10));
-      energy -= de;
+      de = -C6s(i, j) / (d6 + pow(dis, 6)) -
+           C8s(i, j) / (d8 + pow(dis, 8)) -
+           C10s(i, j) / (d10 + pow(dis, 10));
+      energy += de;
     }
   };
-  return energy *= 2;
+  return energy;
 };
 
 double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
