@@ -96,6 +96,12 @@ PYBIND11_MODULE(dispersion, m) {
         )pbdoc",
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("params"));
 
+  m_d.def("disp_2B_XDM", &disp::disp_2B_XDM, R"pbdoc(
+        calculate XDM dispersion energy from positions, cartesians, C6s, C8s, C10s, RCs, and params
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C8s"),
+          py::arg("C10s"), py::arg("RCs"), py::arg("params"));
+
   m_d.def("disp_2B_dimer", &disp::disp_2B_dimer, R"pbdoc(
         calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
         for a dimer broken into two monomers with C6s and C8s
@@ -103,6 +109,18 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("pA"),
           py::arg("cA"), py::arg("C6s_A"), py::arg("pB"), py::arg("cB"),
           py::arg("C6s_B"), py::arg("params"));
+
+  m_d.def("disp_2B_dimer_XDM", &disp::disp_2B_dimer_XDM, R"pbdoc(
+        calculate XDM dispersion energy from positions, cartesians, C6s, C8s,
+          C10s and params for a dimer broken into two monomers with C6s, C8s,
+          and C10s
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C8s"),
+          py::arg("C10s"), py::arg("RCs"), py::arg("pA"), py::arg("cA"),
+          py::arg("C6s_A"), py::arg("C8s_A"), py::arg("C10s_A"),
+          py::arg("RCs_A"), py::arg("pB"), py::arg("cB"), py::arg("C6s_B"),
+          py::arg("C8s_B"), py::arg("C10s_B"), py::arg("RCs_B"),
+          py::arg("params"));
 
   m_d.def("disp_2B_NO_DAMPING", &disp::disp_2B_NO_DAMPING, R"pbdoc(
         calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params

@@ -26,20 +26,37 @@ double disp_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 double disp_2B(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params);
 
+double disp_2B_XDM(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                   py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C8s,
+                   py::EigenDRef<MatrixXd> C10s, py::EigenDRef<MatrixXd> RCs,
+                   Ref<VectorXd> params);
+
 double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                      py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
                      py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,
                      Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
                      py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params);
 
-double disp_2B_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-               py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params);
+double
+disp_2B_dimer_XDM(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                  py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C8s,
+                  py::EigenDRef<MatrixXd> C10s, py::EigenDRef<MatrixXd> RCs,
+                  Ref<VectorXi> pA, py::EigenDRef<MatrixXd> cA,
+                  py::EigenDRef<MatrixXd> C6s_A, py::EigenDRef<MatrixXd> C8s_A,
+                  py::EigenDRef<MatrixXd> C10s_A, py::EigenDRef<MatrixXd> RCs_A,
+                  Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
+                  py::EigenDRef<MatrixXd> C6s_B, py::EigenDRef<MatrixXd> C8s_B,
+                  py::EigenDRef<MatrixXd> C10s_B, py::EigenDRef<MatrixXd> RCs_B,
+                  Ref<VectorXd> params);
 
-double disp_2B_dimer_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                     py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
-                     py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,
-                     Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
-                     py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params);
+double disp_2B_NO_DAMPING(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                          py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params);
+
+double disp_2B_dimer_NO_DAMPING(
+    Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+    py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA, py::EigenDRef<MatrixXd> cA,
+    py::EigenDRef<MatrixXd> C6s_A, Ref<VectorXi> pB, py::EigenDRef<MatrixXd> cB,
+    py::EigenDRef<MatrixXd> C6s_B, Ref<VectorXd> params);
 
 double disp_2B_C6(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                   py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params);
@@ -107,15 +124,17 @@ double disp_ATM_CHG_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s_ATM_B,
                           Ref<VectorXd> params);
 
-double disp_ATM_CHG_trimer_nambe(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
-                           Ref<VectorXi> pB, Ref<VectorXi> pC,
-                           Ref<VectorXd> params);
+double disp_ATM_CHG_trimer_nambe(Ref<VectorXi> pos,
+                                 py::EigenDRef<MatrixXd> carts,
+                                 py::EigenDRef<MatrixXd> C6s_ATM,
+                                 Ref<VectorXi> pA, Ref<VectorXi> pB,
+                                 Ref<VectorXi> pC, Ref<VectorXd> params);
 
-double disp_ATM_TT_trimer_nambe(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                           py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXi> pA,
-                           Ref<VectorXi> pB, Ref<VectorXi> pC,
-                           Ref<VectorXd> params);
+double disp_ATM_TT_trimer_nambe(Ref<VectorXi> pos,
+                                py::EigenDRef<MatrixXd> carts,
+                                py::EigenDRef<MatrixXd> C6s_ATM,
+                                Ref<VectorXi> pA, Ref<VectorXi> pB,
+                                Ref<VectorXi> pC, Ref<VectorXd> params);
 
 double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s,
@@ -131,22 +150,16 @@ double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 double disp_2B_inter_NO_DAMPING(Ref<VectorXi> pos,
                                 py::EigenDRef<MatrixXd> carts,
                                 py::EigenDRef<MatrixXd> C6s,
-                                Ref<VectorXi> monAs, 
-                                Ref<VectorXi> monBs,
-                                Ref<VectorXd> params);
-
-double disp_2B_BJ_inter(Ref<VectorXi> pos,
-                                py::EigenDRef<MatrixXd> carts,
-                                py::EigenDRef<MatrixXd> C6s,
-                                Ref<VectorXi> monAs, 
-                                Ref<VectorXi> monBs,
-                                Ref<VectorXd> params);
-
-double disp_2B_TT_inter(Ref<VectorXi> pos,
-                                py::EigenDRef<MatrixXd> carts,
-                                py::EigenDRef<MatrixXd> C6s,
                                 Ref<VectorXi> monAs, Ref<VectorXi> monBs,
                                 Ref<VectorXd> params);
+
+double disp_2B_BJ_inter(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                        py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> monAs,
+                        Ref<VectorXi> monBs, Ref<VectorXd> params);
+
+double disp_2B_TT_inter(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                        py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> monAs,
+                        Ref<VectorXi> monBs, Ref<VectorXd> params);
 
 double disp_2B_C6_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                              py::EigenDRef<MatrixXd> C6s,
