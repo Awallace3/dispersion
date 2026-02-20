@@ -105,9 +105,10 @@ double disp_2B_XDM(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   double dis;
   int i, j;
   double a1, a2, de;
+  double ang_to_bohr = 1.8897261245650624;
   a1 = params[0];
-  a2 = params[1];
-#pragma omp parallel for shared(C6s, carts, params, pos) private(              \
+  a2 = params[1] * ang_to_bohr;
+#pragma omp parallel for shared(C6s, C8s, C10s, carts, a1, a2, pos) private(   \
         i, j, dis, de) reduction(+ : energy)
   for (i = 0; i < n; i++) {
     for (j = 0; j < i; j++) {
@@ -120,8 +121,7 @@ double disp_2B_XDM(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
       double d10 = d8 * d2;
       dis = a1 * RCs(i, j) + a2;
 
-      de = -C6s(i, j) / (d6 + pow(dis, 6)) -
-           C8s(i, j) / (d8 + pow(dis, 8)) -
+      de = -C6s(i, j) / (d6 + pow(dis, 6)) - C8s(i, j) / (d8 + pow(dis, 8)) -
            C10s(i, j) / (d10 + pow(dis, 10));
       energy += de;
     }
