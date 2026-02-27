@@ -31,6 +31,11 @@ double disp_2B_XDM(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                    py::EigenDRef<MatrixXd> C10s, py::EigenDRef<MatrixXd> RCs,
                    Ref<VectorXd> params);
 
+double disp_2B_XDM_scaled(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                          py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C8s,
+                          py::EigenDRef<MatrixXd> C10s, py::EigenDRef<MatrixXd> RCs,
+                          Ref<VectorXd> params);
+
 double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                      py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
                      py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,

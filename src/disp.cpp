@@ -129,6 +129,44 @@ double disp_2B_XDM(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy;
 };
 
+double disp_2B_XDM_scaled(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                          py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C8s,
+                          py::EigenDRef<MatrixXd> C10s, py::EigenDRef<MatrixXd> RCs,
+                          Ref<VectorXd> params) {
+  // params[0] = a1, params[1] = a2, params[2] = s6, params[3] = s8, params[4] = s10
+  double energy = 0;
+  int n = pos.size();
+  double dis;
+  int i, j;
+  double a1, a2, s6, s8, s10, de;
+  double ang_to_bohr = 1.8897261245650624;
+  a1 = params[0];
+  a2 = params[1] * ang_to_bohr;
+  s6 = params[2];
+  s8 = params[3];
+  s10 = params[4];
+#pragma omp parallel for shared(C6s, C8s, C10s, carts, a1, a2, s6, s8, s10, pos) private(   \
+        i, j, dis, de) reduction(+ : energy)
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < i; j++) {
+      double dx = carts(i, 0) - carts(j, 0);
+      double dy = carts(i, 1) - carts(j, 1);
+      double dz = carts(i, 2) - carts(j, 2);
+      double d2 = dx * dx + dy * dy + dz * dz;
+      double d6 = d2 * d2 * d2;
+      double d8 = d6 * d2;
+      double d10 = d8 * d2;
+      dis = a1 * RCs(i, j) + a2;
+
+      de = -s6 * C6s(i, j) / (d6 + pow(dis, 6)) -
+           s8 * C8s(i, j) / (d8 + pow(dis, 8)) -
+           s10 * C10s(i, j) / (d10 + pow(dis, 10));
+      energy += de;
+    }
+  };
+  return energy;
+};
+
 double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                      py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
                      py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,

@@ -102,6 +102,13 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C8s"),
           py::arg("C10s"), py::arg("RCs"), py::arg("params"));
 
+  m_d.def("disp_2B_XDM_scaled", &disp::disp_2B_XDM_scaled, R"pbdoc(
+        calculate scaled XDM dispersion energy from positions, cartesians, C6s, C8s, C10s, RCs, and params
+        params = [a1, a2, s6, s8, s10] where s6, s8, s10 scale the C6, C8, C10 terms
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C8s"),
+          py::arg("C10s"), py::arg("RCs"), py::arg("params"));
+
   m_d.def("disp_2B_dimer", &disp::disp_2B_dimer, R"pbdoc(
         calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
         for a dimer broken into two monomers with C6s and C8s
