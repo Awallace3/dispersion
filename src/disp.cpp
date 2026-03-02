@@ -167,6 +167,45 @@ double disp_2B_XDM_scaled(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy;
 };
 
+double disp_2B_XDM_inter(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                         py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C8s,
+                         py::EigenDRef<MatrixXd> C10s, py::EigenDRef<MatrixXd> RCs,
+                         Ref<VectorXi> monAs, Ref<VectorXi> monBs,
+                         Ref<VectorXd> params) {
+  // Intermolecular XDM dispersion: only sum over pairs (i in monAs, j in monBs)
+  // Uses dimer-level C6s, C8s, C10s, RCs matrices indexed by dimer atom indices
+  // params[0] = a1, params[1] = a2
+  double energy = 0;
+  double dis;
+  int A, B, i, j;
+  double a1, a2, de;
+  double ang_to_bohr = 1.8897261245650624;
+  a1 = params[0];
+  a2 = params[1] * ang_to_bohr;
+#pragma omp parallel for shared(C6s, C8s, C10s, RCs, carts, a1, a2, pos, monAs, \
+                                monBs) private(A, B, i, j, dis, de)              \
+    reduction(+ : energy)
+  for (A = 0; A < monAs.size(); A++) {
+    i = monAs[A];
+    for (B = 0; B < monBs.size(); B++) {
+      j = monBs[B];
+      double dx = carts(i, 0) - carts(j, 0);
+      double dy = carts(i, 1) - carts(j, 1);
+      double dz = carts(i, 2) - carts(j, 2);
+      double d2 = dx * dx + dy * dy + dz * dz;
+      double d6 = d2 * d2 * d2;
+      double d8 = d6 * d2;
+      double d10 = d8 * d2;
+      dis = a1 * RCs(i, j) + a2;
+
+      de = -C6s(i, j) / (d6 + pow(dis, 6)) - C8s(i, j) / (d8 + pow(dis, 8)) -
+           C10s(i, j) / (d10 + pow(dis, 10));
+      energy += de;
+    }
+  };
+  return energy;
+};
+
 double disp_2B_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                      py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,
                      py::EigenDRef<MatrixXd> cA, py::EigenDRef<MatrixXd> C6s_A,
