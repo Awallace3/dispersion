@@ -1351,7 +1351,6 @@ double disp_ATM_CHG_trimer_nambe(Ref<VectorXi> pos,
         r3 = r2 * r1;
         r5 = r3 * r2;
         fdmp = 1.0 / (1.0 + 6.0 * pow(r0 / r1, alph / 3.0));
-        printf("fdmp: %f\n", fdmp);
         ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
                    (-dis_ij + dis_jk + dis_ik) / r5 +
                1.0 / r3);
@@ -1425,7 +1424,6 @@ double disp_ATM_TT_trimer_nambe(Ref<VectorXi> pos,
                    (-dis_ij + dis_jk + dis_ik) / r5 +
                1.0 / r3);
         fdmp = f6_ij * f6_ik * f6_jk;
-        printf("fdmp: %f\n", fdmp);
         energy -= 6 * (ang * fdmp * c9 * triple / 6.0);
       };
     };
