@@ -47,6 +47,33 @@ jobs:
       env:
         CIBW_ARCHS_MACOS: auto universal2
         CIBW_PRERELEASE_PYTHONS: "1"
+        CIBW_BEFORE_ALL_LINUX: >-
+          bash -lc "set -euxo pipefail &&
+          python -c 'import urllib.request; urllib.request.urlretrieve(\"https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh\", \"/tmp/miniconda.sh\")' &&
+          bash /tmp/miniconda.sh -b -p /opt/miniconda3 &&
+          /opt/miniconda3/bin/conda env create -n cibw -f /project/environment.yml"
+        CIBW_BEFORE_ALL_MACOS: >-
+          bash -lc "set -euxo pipefail &&
+          arch=$(uname -m) &&
+          if [ \"$arch\" = \"arm64\" ]; then installer=https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh; else installer=https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh; fi &&
+          curl -fsSL -o /tmp/miniconda.sh \"$installer\" &&
+          bash /tmp/miniconda.sh -b -p /Users/runner/miniconda3 &&
+          /Users/runner/miniconda3/bin/conda env create -n cibw -f \"$GITHUB_WORKSPACE/environment.yml\""
+        CIBW_BEFORE_ALL_WINDOWS: >-
+          powershell -NoProfile -ExecutionPolicy Bypass -Command
+          "Invoke-WebRequest -Uri 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe' -OutFile C:\\miniconda.exe; Start-Process -FilePath C:\\miniconda.exe -ArgumentList '/InstallationType=JustMe','/RegisterPython=0','/S','/D=C:\\Miniconda3' -Wait; C:\\Miniconda3\\Scripts\\conda.exe env create -n cibw -f \"$env:GITHUB_WORKSPACE\\environment.yml\""
+        CIBW_ENVIRONMENT_LINUX: >-
+          PATH=/opt/miniconda3/envs/cibw/bin:/opt/miniconda3/bin:$PATH
+          CMAKE_PREFIX_PATH=/opt/miniconda3/envs/cibw
+          Eigen3_DIR=/opt/miniconda3/envs/cibw/share/eigen3/cmake
+        CIBW_ENVIRONMENT_MACOS: >-
+          PATH=/Users/runner/miniconda3/envs/cibw/bin:/Users/runner/miniconda3/bin:$PATH
+          CMAKE_PREFIX_PATH=/Users/runner/miniconda3/envs/cibw
+          Eigen3_DIR=/Users/runner/miniconda3/envs/cibw/share/eigen3/cmake
+        CIBW_ENVIRONMENT_WINDOWS: >-
+          PATH=C:\\Miniconda3\\envs\\cibw;C:\\Miniconda3\\envs\\cibw\\Library\\bin;C:\\Miniconda3\\Scripts;C:\\Miniconda3;%PATH%
+          CMAKE_PREFIX_PATH=C:\\Miniconda3\\envs\\cibw
+          Eigen3_DIR=C:\\Miniconda3\\envs\\cibw\\share\\eigen3\\cmake
 
     - name: Verify clean directory
       run: git diff --exit-code
