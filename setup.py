@@ -262,7 +262,7 @@ setup(
     },
     zip_safe=False,
     extras_require={
-        "test": ["pytest>=6.0"],
+        "test": ["pytest>=6.0", "numpy", "qcelemental"],
     },
     python_requires=">=3.8",
     classifiers=[

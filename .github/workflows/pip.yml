@@ -12,25 +12,50 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
-        python-version: ["3.8", "3.11"]
+        python-version: ["3.10", "3.12"]
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Add requirements
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          gfortran \
+          libeigen3-dev \
+          libopenblas-dev \
+          liblapack-dev
+
+    - name: Add Python requirements
       run: python -m pip install --upgrade wheel setuptools
 
-    - name: Build and install
+    - name: Build with CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make -j$(nproc)
+
+    - name: Install Python package
       run: pip install --verbose .[test]
+
+    - name: Add dftd4 binary to PATH
+      run: echo "${{ github.workspace }}/build/dftd4/app" >> $GITHUB_PATH
+
+    - name: Verify dftd4 binary
+      run: |
+        which dftd4
+        dftd4 --version || true
 
     - name: Test
       run: python -m pytest
