@@ -34,7 +34,7 @@ def test_disp_ATM_CHG_trimer_nambe():
     }
     geom = np.hstack((data["symbols"].reshape(-1, 1), data["geometry"]))
     qcel_trimer = qcel.models.Molecule.from_data(geom, frags=data["frags"])
-    print(qcel_trimer)
+    # print(qcel_trimer)
     C6s, C8s, C6s_ATM = pydispersion.qcel_mol_acquire_c6s(qcel_trimer)
     # Same parameters as Yi in
     # https://pubs.aip.org/aip/jcp/article/158/9/094110/2881313/Assessment-of-three-body-dispersion-models-against
@@ -46,7 +46,7 @@ def test_disp_ATM_CHG_trimer_nambe():
             "s9": 1.0,
         },
     )
-    print(f"nambe_ATM: {nambe_ATM}")
+    # print(f"nambe_ATM: {nambe_ATM}")
     return
 
 
@@ -81,7 +81,7 @@ def test_disp_ATM_TT_trimer_nambe():
     }
     geom = np.hstack((data["symbols"].reshape(-1, 1), data["geometry"]))
     qcel_trimer = qcel.models.Molecule.from_data(geom, frags=data["frags"])
-    print(qcel_trimer)
+    # print(qcel_trimer)
     C6s, C8s, C6s_ATM = pydispersion.qcel_mol_acquire_c6s(qcel_trimer)
     # Same parameters as Yi in
     # https://pubs.aip.org/aip/jcp/article/158/9/094110/2881313/Assessment-of-three-body-dispersion-models-against
@@ -93,7 +93,7 @@ def test_disp_ATM_TT_trimer_nambe():
             "s9": 1.0,
         },
     )
-    print(f"nambe_ATM: {nambe_ATM}")
+    # print(f"nambe_ATM: {nambe_ATM}")
     return
 
 if __name__ == "__main__":

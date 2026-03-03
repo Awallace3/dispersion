@@ -1,0 +1,23 @@
+name: disp
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+    # build
+  - c-compiler
+  - cmake
+  - cxx-compiler
+  - ninja
+  - eigen                     
+  - libblas=*=*mkl
+  - libboost-headers          
+  - llvm-openmp
+  - numpy
+  - pip                      
+  - python
+  - fortran-compiler
+  - zlib
+  - setuptools
+  - pytest
+  - pytest-xdist
+  - qcelemental

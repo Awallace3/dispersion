@@ -4,4 +4,4 @@
     branch = master
 [submodule "dftd4"]
 	path = dftd4
-	url = git@github.com:Awallace3/dftd4.git
+	url = https://github.com/Awallace3/dftd4.git
