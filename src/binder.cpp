@@ -118,6 +118,15 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("C10s"), py::arg("RCs"), py::arg("monAs"), py::arg("monBs"),
           py::arg("params"));
 
+  m_d.def("disp_2B_XDM_inter_scaled", &disp::disp_2B_XDM_inter_scaled, R"pbdoc(
+        calculate intermolecular XDM dispersion energy with scaled C6/C8/C10 terms.
+          Uses dimer-level matrices with monA/monB indices.
+          params = [a1, a2, s6, s8, s10]
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C8s"),
+          py::arg("C10s"), py::arg("RCs"), py::arg("monAs"), py::arg("monBs"),
+          py::arg("params"));
+
   m_d.def("disp_2B_dimer", &disp::disp_2B_dimer, R"pbdoc(
         calculate 2-body -D4 dispersion energy from positions, cartesians, C6s, and params
         for a dimer broken into two monomers with C6s and C8s
