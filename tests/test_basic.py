@@ -204,3 +204,35 @@ if __name__ == "__main__":
     test_disp_ATM_TT_trimer_nambe()
     test_disp_ATM_TT_matches_reference()
     test_qcel_2B()
+
+
+def test_qcel_mol_acquire_c6s_units(tmp_path, monkeypatch):
+    """qcel geometries are bohr; dftd4 reads Angstrom. The qcel route must give
+    the same C6s as calling acquire_c6s with the Angstrom coordinates directly
+    (9c7b197 divided by bohr2angstroms, so dftd4 saw a 3.57x larger molecule)."""
+    monkeypatch.chdir(tmp_path)  # dftd4 writes its json/xyz files to cwd
+    xyz_ang = np.array(
+        [
+            [0.000, 0.000, 0.000],
+            [0.757, 0.587, 0.000],
+            [-0.757, 0.587, 0.000],
+            [2.800, 0.300, 0.200],
+            [3.300, -0.400, 0.600],
+            [1.900, 0.200, 0.500],
+        ]
+    )
+    Z = np.array([8, 1, 1, 8, 1, 1])
+    mol = qcel.models.Molecule.from_data(
+        "\n".join(f"{qcel.periodictable.to_E(z)} {x:.6f} {y:.6f} {w:.6f}" for z, (x, y, w) in zip(Z, xyz_ang))
+    )
+    assert np.allclose(mol.geometry * qcel.constants.bohr2angstroms, xyz_ang, atol=1e-6)
+
+    C6s, C8s, C6s_ATM = pydispersion.qcel_mol_acquire_c6s(mol)
+    ref_C6s, ref_C8s, _, _, ref_C6s_ATM = pydispersion.acquire_c6s(Z, xyz_ang, 0)
+    assert np.allclose(C6s, ref_C6s, rtol=1e-6, atol=0)
+    assert np.allclose(C8s, ref_C8s, rtol=1e-6, atol=0)
+    assert np.allclose(C6s_ATM, ref_C6s_ATM, rtol=1e-6, atol=0)
+
+    # sensitivity: the old conversion gives clearly different C6s
+    bad_C6s, _, _, _, _ = pydispersion.acquire_c6s(Z, xyz_ang / qcel.constants.bohr2angstroms**2, 0)
+    assert not np.allclose(bad_C6s, ref_C6s, rtol=1e-3)
