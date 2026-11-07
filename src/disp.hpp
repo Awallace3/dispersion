@@ -141,11 +141,14 @@ double disp_ATM_CHG_trimer_nambe(Ref<VectorXi> pos,
                                  Ref<VectorXi> pA, Ref<VectorXi> pB,
                                  Ref<VectorXi> pC, Ref<VectorXd> params);
 
+// vdw_radii: per-element radii (bohr) indexed by atomic number; empty means
+// use constants::vdw_ls.
 double disp_ATM_TT_trimer_nambe(Ref<VectorXi> pos,
                                 py::EigenDRef<MatrixXd> carts,
                                 py::EigenDRef<MatrixXd> C6s_ATM,
                                 Ref<VectorXi> pA, Ref<VectorXi> pB,
-                                Ref<VectorXi> pC, Ref<VectorXd> params);
+                                Ref<VectorXi> pC, Ref<VectorXd> params,
+                                const std::vector<double> &vdw_radii = {});
 
 double disp_2B_BJ_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                           py::EigenDRef<MatrixXd> C6s,
@@ -194,7 +197,10 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                   py::EigenDRef<MatrixXd> C6s, Ref<VectorXd> params);
 
 double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                   py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params);
+                   py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params,
+                   const std::vector<double> &vdw_radii = {});
+
+std::vector<double> default_vdw_radii();
 
 double disp_2B_TT_dimer(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                         py::EigenDRef<MatrixXd> C6s, Ref<VectorXi> pA,

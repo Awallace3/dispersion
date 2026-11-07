@@ -12,6 +12,13 @@ import os
 import qcelemental as qcel
 
 
+def _ext():
+    """Return the compiled `dispersion` extension module."""
+    import dispersion
+
+    return dispersion
+
+
 def has_cpp_extensions():
     """
     Check if C++ extensions are available.
@@ -149,7 +156,7 @@ def qcel_mol_acquire_c6s(
     """
     C6s, C8s, _, _, C6s_ATM = acquire_c6s(
         qcel_mol.atomic_numbers,
-        qcel_mol.geometry / qcel.constants.bohr2angstroms,
+        qcel_mol.geometry * qcel.constants.bohr2angstroms,  # bohr -> Angstrom for the xyz file
         int(qcel_mol.molecular_charge),
         paramaters=paramaters,
         dftd4_bin=dftd4_bin,
@@ -228,134 +235,224 @@ def acquire_c6s(
     return C6s, C8s, pairs, e, C6s_ATM
 
 
+# D4 rational (BJ) two-body parameters for HF (dftd4 assets/parameters.toml).
+D4_2B_BJ_DEFAULTS = {"s6": 1.0, "s8": 1.61679827, "a1": 0.44959224, "a2": 3.35743605}
+
+
+def _fragment_indices(qcel_mol):
+    """Atom indices of each fragment, in geometry order."""
+    sizes = [len(f) for f in qcel_mol.fragments]
+    offsets = np.cumsum([0] + sizes)
+    return [
+        np.arange(offsets[i], offsets[i + 1], dtype=np.int32)
+        for i in range(len(sizes))
+    ]
+
+
 def qcel_2B(
     qcel_mol,
-    paramaters={
-        "s6": 1.0,
-        "s8": 1.61679827,
-        "a1": 0.44959224,
-        "a2": 3.35743605,
-        "s9": 1.0,
-    },
+    paramaters=None,
     dftd4_bin="dftd4",
+    s6=D4_2B_BJ_DEFAULTS["s6"],
+    s8=D4_2B_BJ_DEFAULTS["s8"],
+    a1=D4_2B_BJ_DEFAULTS["a1"],
+    a2=D4_2B_BJ_DEFAULTS["a2"],
+    intermolecular=None,
 ):
     """
-    if 'a1' and 'a2' then mCHG damping, elif 'b1' and 'b2' TT damping
-    """
-    import dispersion
+    D4 two-body dispersion energy (hartree) of a qcel molecule with
+    Becke-Johnson (rational) damping.
 
-    c6s, c8s, _ = qcel_mol_acquire_c6s(
-        qcel_mol,
-        dftd4_bin=dftd4_bin,
+    C6 coefficients are computed once for the whole molecule (EEQ charges for
+    the total molecular charge), so with ``intermolecular=False`` the result
+    equals dftd4's two-body energy for the same parameters.
+
+    Parameters
+    ----------
+    qcel_mol : qcelemental.models.Molecule
+    paramaters : dict, optional
+        Legacy dict with any of 's6', 's8', 'a1', 'a2'; values override the
+        keywords. Other keys (e.g. 's9') are ignored.
+    s6, s8, a1, a2 : float
+        BJ parameters; defaults are D4 HF.
+    intermolecular : bool, optional
+        True sums only atom pairs on different fragments (all fragment pairs);
+        False sums all atom pairs. Defaults to True when the molecule has more
+        than one fragment.
+    """
+    disp = _ext().disp
+    values = {"s6": s6, "s8": s8, "a1": a1, "a2": a2}
+    if paramaters:
+        values.update({k: v for k, v in paramaters.items() if k in values})
+    params = np.array(
+        [values["s6"], values["s8"], values["a1"], values["a2"]], dtype=np.float64
     )
-    pA = np.array(
-        [i for i in range(len(qcel_mol.get_fragment(0).atomic_numbers))], dtype=np.int32
+
+    c6s, _, _ = qcel_mol_acquire_c6s(qcel_mol, dftd4_bin=dftd4_bin)
+    c6s = np.array(c6s, dtype=np.float64)
+    pos = np.array(qcel_mol.atomic_numbers, dtype=np.int32)
+    carts = np.array(qcel_mol.geometry, dtype=np.float64)
+    frags = _fragment_indices(qcel_mol)
+    if intermolecular is None:
+        intermolecular = len(frags) > 1
+    if not intermolecular:
+        return disp.disp_2B(pos, carts, c6s, params)
+    if len(frags) < 2:
+        raise ValueError("intermolecular=True requires at least two fragments.")
+    return sum(
+        disp.disp_2B_BJ_inter(pos, carts, c6s, frags[i], frags[j], params)
+        for i in range(len(frags))
+        for j in range(i + 1, len(frags))
     )
-    pB = np.array(
-        [
-            i
-            for i in range(
-                len(pA), len(pA) + len(qcel_mol.get_fragment(1).atomic_numbers)
-            )
-        ],
-        dtype=np.int32,
-    )
-    pC = np.array(
-        [
-            i
-            for i in range(
-                len(pA) + len(pB),
-                len(pA) + len(pB) + len(qcel_mol.get_fragment(2).atomic_numbers),
-            )
-        ],
-        dtype=np.int32,
-    )
-    params = np.zeros(3, dtype=np.float64)
-    if "a1" in paramaters:
-        params[0] = paramaters["a1"]
-        params[1] = paramaters["a2"]
-        params[2] = paramaters["s9"]
-        disp_func = dispersion.disp.disp_ATM_CHG_trimer_nambe
-    elif "b1" in paramaters:
-        params[0] = paramaters["b1"]
-        params[1] = paramaters["b2"]
-        params[2] = paramaters["s9"]
-        disp_func = dispersion.disp.disp_ATM_TT_trimer_nambe
-    else:
-        raise ValueError("Unknown parameters")
-    nambe_ATM = disp_func(
-        np.array(qcel_mol.atomic_numbers, dtype=np.int32),
-        np.array(qcel_mol.geometry, dtype=np.float64),
-        c6s_atm,
-        pA,
-        pB,
-        pC,
-        params,
-    )
-    return nambe_ATM
+
+
+# D4 rational-damping parameters for HF (dftd4 assets/parameters.toml), used
+# with Chai-Head-Gordon (CHG) zero damping of the ATM term.
+ATM_CHG_DEFAULTS = {"a1": 0.44959224, "a2": 3.35743605, "s9": 1.0}
+# Tang-Toennies (TT) damping of the ATM term, beta_ij = b1 * (r_i + r_j) + b2,
+# from Xie, Glick, Sherrill, J. Chem. Phys. 158, 094110 (2023), Eq. 7.
+ATM_TT_DEFAULTS = {"b1": -0.31, "b2": 3.43, "s9": 1.0}
+
+
+def vdw_radii_table(overrides=None):
+    """
+    Per-element vdW radii (bohr) used by TT damping, indexed by atomic number.
+
+    The default table is libmbd's Tkatchenko-Scheffler free-atom R_vdw for
+    Z = 1-102 with H, C, N, O replaced by 2.63, 3.34, 3.18, 3.09 bohr.
+
+    Parameters
+    ----------
+    overrides : dict, optional
+        {atomic_number: radius_in_bohr} entries replacing table values, e.g.
+        {8: 3.07} for the oxygen radius quoted by Xie et al. (2023).
+
+    Returns
+    -------
+    numpy.ndarray
+    """
+    table = np.array(_ext().disp.default_vdw_radii(), dtype=np.float64)
+    for z, r in (overrides or {}).items():
+        z = int(z)
+        if z >= len(table):
+            table = np.concatenate([table, np.zeros(z + 1 - len(table))])
+        table[z] = float(r)
+    return table
+
+
+def _resolve_vdw_radii(vdw_radii):
+    """None -> [] (C++ default table); dict -> overrides; array -> full table."""
+    if vdw_radii is None:
+        return []
+    if isinstance(vdw_radii, dict):
+        return vdw_radii_table(vdw_radii).tolist()
+    return np.asarray(vdw_radii, dtype=np.float64).tolist()
+
+
+def calculate_atm_energy(
+    positions,
+    cartesians,
+    c6s_atm,
+    damping_function="TT",
+    b1=ATM_TT_DEFAULTS["b1"],
+    b2=ATM_TT_DEFAULTS["b2"],
+    a1=ATM_CHG_DEFAULTS["a1"],
+    a2=ATM_CHG_DEFAULTS["a2"],
+    s9=1.0,
+    vdw_radii=None,
+):
+    """
+    Supermolecular ATM three-body dispersion energy (hartree).
+
+    Parameters
+    ----------
+    positions : numpy.ndarray
+        Atomic numbers.
+    cartesians : numpy.ndarray
+        Coordinates in bohr.
+    c6s_atm : numpy.ndarray
+        Charge-neutral D4 C6 matrix (third return of qcel_mol_acquire_c6s).
+    damping_function : str
+        'TT' (product of pairwise Tang-Toennies f6) or 'CHG' (D4 zero damping).
+    b1, b2 : float
+        TT parameters, beta_ij = b1 * (r_i + r_j) + b2. Used for 'TT'.
+    a1, a2 : float
+        Rational-damping radii parameters. Used for 'CHG'.
+    s9 : float
+        Scale of the C9 coefficients.
+    vdw_radii : dict or array-like, optional
+        TT only. dict {Z: radius} overrides the default table; an array is a
+        full table indexed by atomic number. All radii in bohr.
+    """
+    disp = _ext().disp
+    pos = np.asarray(positions, dtype=np.int32)
+    carts = np.asarray(cartesians, dtype=np.float64)
+    c6s_atm = np.asarray(c6s_atm, dtype=np.float64)
+    damping = damping_function.upper()
+    if damping == "TT":
+        params = np.array([0.0, 0.0, b1, b2, s9], dtype=np.float64)
+        return disp.disp_ATM_TT(pos, carts, c6s_atm, params, _resolve_vdw_radii(vdw_radii))
+    if damping == "CHG":
+        if vdw_radii is not None:
+            raise ValueError("vdw_radii only applies to TT damping.")
+        params = np.array([0.0, 0.0, a1, a2, s9], dtype=np.float64)
+        return disp.disp_ATM_CHG(pos, carts, c6s_atm, params)
+    raise ValueError(f"Unknown damping_function: {damping_function}. Use 'TT' or 'CHG'.")
 
 
 def qcel_nambe_ATM(
     qcel_mol,
-    paramaters={
-        "a1": 0.44959224,
-        "a2": 3.35743605,
-        "s9": 1.0,
-    },
+    paramaters=None,
     dftd4_bin="dftd4",
+    damping_function=None,
+    b1=ATM_TT_DEFAULTS["b1"],
+    b2=ATM_TT_DEFAULTS["b2"],
+    a1=ATM_CHG_DEFAULTS["a1"],
+    a2=ATM_CHG_DEFAULTS["a2"],
+    s9=1.0,
+    vdw_radii=None,
 ):
     """
-    if 'a1' and 'a2' then mCHG damping, elif 'b1' and 'b2' TT damping
-    """
-    import dispersion
+    Nonadditive three-body ATM dispersion (hartree) of a qcel trimer: the sum
+    over triples with one atom on each fragment, using C6s of the full trimer.
 
-    c6s, c8s, c6s_atm = qcel_mol_acquire_c6s(
-        qcel_mol,
-        dftd4_bin=dftd4_bin,
-    )
+    damping_function : 'CHG' (default) or 'TT'.
+    b1, b2 : TT parameters, beta_ij = b1 * (r_i + r_j) + b2 (Xie et al. 2023).
+    a1, a2 : CHG rational-damping parameters (D4 HF).
+    s9 : C9 scale.
+    vdw_radii : TT only; dict {Z: radius_bohr} overrides or a full table.
+    paramaters : legacy dict. Keys 'a1'/'a2' select CHG and 'b1'/'b2' select TT
+        when damping_function is not given; its values override the keywords.
+    """
+    disp = _ext().disp
+    values = {"a1": a1, "a2": a2, "b1": b1, "b2": b2, "s9": s9}
+    if paramaters:
+        if damping_function is None:
+            if "b1" in paramaters:
+                damping_function = "TT"
+            elif "a1" in paramaters:
+                damping_function = "CHG"
+            else:
+                raise ValueError("Unknown parameters")
+        values.update(paramaters)
+    damping = (damping_function or "CHG").upper()
+
+    _, _, c6s_atm = qcel_mol_acquire_c6s(qcel_mol, dftd4_bin=dftd4_bin)
     c6s_atm = np.array(c6s_atm, dtype=np.float64)
-    pA = np.array(
-        [i for i in range(len(qcel_mol.get_fragment(0).atomic_numbers))], dtype=np.int32
-    )
-    pB = np.array(
-        [
-            i
-            for i in range(
-                len(pA), len(pA) + len(qcel_mol.get_fragment(1).atomic_numbers)
-            )
-        ],
-        dtype=np.int32,
-    )
-    pC = np.array(
-        [
-            i
-            for i in range(
-                len(pA) + len(pB),
-                len(pA) + len(pB) + len(qcel_mol.get_fragment(2).atomic_numbers),
-            )
-        ],
-        dtype=np.int32,
-    )
-    params = np.zeros(3, dtype=np.float64)
-    if "a1" in paramaters:
-        params[0] = paramaters["a1"]
-        params[1] = paramaters["a2"]
-        params[2] = paramaters["s9"]
-        disp_func = dispersion.disp.disp_ATM_CHG_trimer_nambe
-    elif "b1" in paramaters:
-        params[0] = paramaters["b1"]
-        params[1] = paramaters["b2"]
-        params[2] = paramaters["s9"]
-        disp_func = dispersion.disp.disp_ATM_TT_trimer_nambe
-    else:
-        raise ValueError("Unknown parameters")
-    nambe_ATM = disp_func(
-        np.array(qcel_mol.atomic_numbers, dtype=np.int32),
-        np.array(qcel_mol.geometry, dtype=np.float64),
-        c6s_atm,
-        pA,
-        pB,
-        pC,
-        params,
-    )
-    return nambe_ATM
+    frags = _fragment_indices(qcel_mol)
+    if len(frags) != 3:
+        raise ValueError(f"qcel_nambe_ATM needs 3 fragments, got {len(frags)}.")
+    pA, pB, pC = frags
+    pos = np.array(qcel_mol.atomic_numbers, dtype=np.int32)
+    carts = np.array(qcel_mol.geometry, dtype=np.float64)
+    if damping == "TT":
+        params = np.array([values["b1"], values["b2"], values["s9"]], dtype=np.float64)
+        return disp.disp_ATM_TT_trimer_nambe(
+            pos, carts, c6s_atm, pA, pB, pC, params, _resolve_vdw_radii(vdw_radii)
+        )
+    if damping == "CHG":
+        if vdw_radii is not None:
+            raise ValueError("vdw_radii only applies to TT damping.")
+        params = np.array([values["a1"], values["a2"], values["s9"]], dtype=np.float64)
+        return disp.disp_ATM_CHG_trimer_nambe(pos, carts, c6s_atm, pA, pB, pC, params)
+    raise ValueError(f"Unknown damping_function: {damping_function}. Use 'TT' or 'CHG'.")

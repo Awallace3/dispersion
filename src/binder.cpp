@@ -279,9 +279,14 @@ PYBIND11_MODULE(dispersion, m) {
 
   m_d.def("disp_ATM_TT_trimer_nambe", &disp::disp_ATM_TT_trimer_nambe,
           R"pbdoc(
+        nonadditive 3-body ATM between fragments pA, pB, pC with a product of
+        pairwise Tang-Toennies f6 damping. params = [b1, b2, s9] with
+        beta_ij = b1 * (r_i + r_j) + b2. vdw_radii: optional per-element
+        radii (bohr) indexed by atomic number; empty uses default_vdw_radii().
         )pbdoc",
           py::arg("pos"), py::arg("carts"), py::arg("C6s_ATM"), py::arg("pA"),
-          py::arg("pB"), py::arg("pC"), py::arg("params"));
+          py::arg("pB"), py::arg("pC"), py::arg("params"),
+          py::arg("vdw_radii") = std::vector<double>());
 
   m_d.def("disp_2B_BJ_ATM_CHG", &disp::disp_2B_BJ_ATM_CHG, R"pbdoc(
         calculate -D4 2Body (BJ) ATM (CHG) damping dispersion
@@ -300,10 +305,19 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("params_2B"), py::arg("params_ATM"));
 
   m_d.def("disp_ATM_TT", &disp::disp_ATM_TT, R"pbdoc(
-        calculate -D4 ATM Chair and Head-Gordon (TT) damping dispersion
+        calculate -D4 ATM dispersion with Tang-Toennies (TT) damping.
+        params = [s6, s8, b1, b2, s9] (s6, s8 unused) with
+        beta_ij = b1 * (r_i + r_j) + b2. vdw_radii: optional per-element
+        radii (bohr) indexed by atomic number; empty uses default_vdw_radii().
         )pbdoc",
           py::arg("pos"), py::arg("carts"), py::arg("C6s_ATM"),
-          py::arg("params"));
+          py::arg("params"), py::arg("vdw_radii") = std::vector<double>());
+
+  m_d.def("default_vdw_radii", &disp::default_vdw_radii, R"pbdoc(
+        default vdW radii (bohr) indexed by atomic number (index 0 unused):
+        libmbd Tkatchenko-Scheffler free-atom R_vdw for Z = 1-102, with
+        H, C, N, O = 2.63, 3.34, 3.18, 3.09.
+        )pbdoc");
 
   m_d.def("disp_ATM_TT_dimer", &disp::disp_ATM_TT_dimer, R"pbdoc(
         )pbdoc",
