@@ -1546,7 +1546,9 @@ double disp_2B_TT_inter(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 
         f6_ij = f_n_TT(b_ij, pow(dis, 0.5), 6);
         f8_ij = f_n_TT(b_ij, pow(dis, 0.5), 8);
-        C8 = -C6s(i, j) * 3 * pow(Q_A * Q_B, 0.5);
+        // D4 convention (as in disp_2B): C8 = 3 C6 Q_A Q_B with
+        // Q = sqrt(0.5 sqrt(Z) <r4>/<r2>); both terms attractive for C6 > 0.
+        C8 = 3.0 * C6s(i, j) * Q_A * Q_B;
         de = s6 * f6_ij * C6s(i, j) / pow(dis, 3) +
              s8 * f8_ij * C8 / pow(dis, 4);
         energy -= de;
@@ -1712,16 +1714,14 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
     if (vdw_i == 0.0) {
       std::cout << "Error: vdw_i is 0.0" << std::endl;
     }
-    // Q_A = pow(0.5 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
-    Q_A = s_42 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1];
+    Q_A = pow(0.5 * s_42 * pow(el1, 0.5) * constants::r4r2_ls[el1 - 1], 0.5);
     for (j = 0; j < i; j++) {
       el2 = pos[j];
       vdw_j = constants::vdw_ls[el2];
       if (vdw_j == 0.0) {
         std::cout << "Error: vdw_j is 0.0" << std::endl;
       }
-      // Q_B = pow(0.5 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
-      Q_B = s_42 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1];
+      Q_B = pow(0.5 * s_42 * pow(el2, 0.5) * constants::r4r2_ls[el2 - 1], 0.5);
       for (k = 0; k < lattice_points; k++) {
         b_ij = b1 * (vdw_i + vdw_j) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
         dis = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
@@ -1730,8 +1730,9 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 
         f6_ij = f_n_TT(b_ij, pow(dis, 0.5), 6);
         f8_ij = f_n_TT(b_ij, pow(dis, 0.5), 8);
-        C8 = -3 * C6s(i, j) * pow(Q_A * Q_B, 0.5);
-        // C8 = -3 * C6s(i, j) * Q_A * Q_B;
+        // D4 convention (as in disp_2B): C8 = 3 C6 Q_A Q_B with
+        // Q = sqrt(0.5 sqrt(Z) <r4>/<r2>); same sign as the C6 term.
+        C8 = 3.0 * C6s(i, j) * Q_A * Q_B;
         de = s6 * f6_ij * C6s(i, j) / pow(dis, 3) +
              s8 * f8_ij * C8 / pow(dis, 4);
         energy += de;

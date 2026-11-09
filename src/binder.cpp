@@ -189,6 +189,13 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("monAs"),
           py::arg("monBs"), py::arg("params"));
 
+  m_d.def("disp_2B_TT", &disp::disp_2B_TT, R"pbdoc(
+        calculate 2-body -D4 dispersion energy with Tang-Toennies damping.
+        params = [s6, s8, b1, b2] with beta_ij = b1 * (r_i + r_j) + b2.
+        Note: each pair is counted twice (2x the disp_2B pair sum).
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("params"));
+
   m_d.def("vals_for_SR", &disp::vals_for_SR, R"pbdoc(
         calculate values for SR
         size(vals) = np.zeros((int(N * (N - 1) * (N - 2) / 6), 5))

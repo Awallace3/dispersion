@@ -153,6 +153,36 @@ def test_disp_ATM_TT_matches_reference():
     assert np.isclose(e, _atm_tt_reference(Z, X, c6, full, b1, b2, s9, vdw_o), rtol=1e-12, atol=0)
 
 
+def test_disp_2B_TT_C8_matches_D4_undamped():
+    """With beta large (f_n -> 1), the TT kernels reduce to undamped -D4 sums:
+    C8 = 3 C6 Q_A Q_B, Q = sqrt(0.5 sqrt(Z) <r4>/<r2>), both terms attractive."""
+    import dispersion
+
+    d = dispersion.disp
+    Z = np.array([8, 1, 1, 7, 1, 1, 1], dtype=np.int32)
+    X = np.array(
+        [
+            [0.0, 0.0, 0.0], [1.43, 1.11, 0.0], [-1.43, 1.11, 0.0],
+            [5.6, 0.3, 0.4], [6.3, -1.4, 0.9], [6.4, 1.6, 1.3], [6.1, 0.8, -1.4],
+        ]
+    )
+    rng = np.random.default_rng(1)
+    c6 = rng.uniform(2.0, 20.0, (7, 7))
+    c6 = (c6 + c6.T) / 2
+    A, B = np.arange(3, dtype=np.int32), np.arange(3, 7, dtype=np.int32)
+    undamped = np.array([0.0, 50.0])  # b1, b2 -> beta = 50 bohr^-1
+    for s6, s8 in ((1.0, 0.0), (0.0, 1.0), (1.0, 1.0)):
+        e_tt = d.disp_2B_TT_inter(Z, X, c6, A, B, np.array([s6, s8, *undamped]))
+        e_ref = d.disp_2B_inter_NO_DAMPING(Z, X, c6, A, B, np.array([s6, s8]))
+        assert np.isclose(e_tt, e_ref, rtol=1e-10, atol=0), (s6, s8, e_tt, e_ref)
+        assert e_tt < 0
+        # disp_2B_TT counts each pair twice (j < i, added for i, j and j, i)
+        e_tt = d.disp_2B_TT(Z, X, c6, np.array([s6, s8, *undamped]))
+        e_ref = d.disp_2B_NO_DAMPING(Z, X, c6, np.array([s6, s8]))
+        assert np.isclose(e_tt, 2 * e_ref, rtol=1e-10, atol=0), (s6, s8, e_tt, e_ref)
+        assert e_tt < 0
+
+
 def test_qcel_2B():
     # water trimer (Angstrom input)
     qcel_trimer = qcel.models.Molecule.from_data(
