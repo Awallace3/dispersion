@@ -86,16 +86,153 @@ def test_disp_ATM_TT_trimer_nambe():
     # Same parameters as Yi in
     # https://pubs.aip.org/aip/jcp/article/158/9/094110/2881313/Assessment-of-three-body-dispersion-models-against
     nambe_ATM = pydispersion.compute.qcel_nambe_ATM(
-        qcel_trimer,
-        paramaters={
-            "b1": -0.31,
-            "b2": 3.43,
-            "s9": 1.0,
-        },
+        qcel_trimer, damping_function="TT", b1=-0.31, b2=3.43, s9=1.0
     )
+    nambe_ATM_legacy = pydispersion.compute.qcel_nambe_ATM(
+        qcel_trimer, paramaters={"b1": -0.31, "b2": 3.43, "s9": 1.0}
+    )
+    assert np.isclose(nambe_ATM, nambe_ATM_legacy, rtol=1e-12, atol=0)
     # print(f"nambe_ATM: {nambe_ATM}")
     return
+
+def _atm_tt_reference(Z, X, c6, triples, b1, b2, s9, vdw):
+    """Xie, Glick, Sherrill, JCP 158, 094110 (2023), Eqs. 1, 3, 5-7."""
+    import math
+
+    def f6(beta, r):
+        x = beta * r
+        return 1 - math.exp(-x) * sum(x**k / math.factorial(k) for k in range(7))
+
+    e = 0.0
+    for i, j, k in triples:
+        rij, rik, rjk = (np.linalg.norm(X[a] - X[b]) for a, b in ((i, j), (i, k), (j, k)))
+        ca = np.dot(X[j] - X[i], X[k] - X[i]) / (rij * rik)
+        cb = np.dot(X[i] - X[j], X[k] - X[j]) / (rij * rjk)
+        cc = np.dot(X[i] - X[k], X[j] - X[k]) / (rik * rjk)
+        c9 = s9 * math.sqrt(abs(c6[i, j] * c6[i, k] * c6[j, k]))
+        beta = lambda a, b: b1 * (vdw[Z[a]] + vdw[Z[b]]) + b2
+        e += (
+            f6(beta(i, j), rij) * f6(beta(i, k), rik) * f6(beta(j, k), rjk)
+            * c9 * (1 + 3 * ca * cb * cc) / (rij * rik * rjk) ** 3
+        )
+    return e
+
+
+def test_disp_ATM_TT_matches_reference():
+    # water trimer (bohr)
+    Z = np.array([8, 1, 1, 8, 1, 1, 8, 1, 1], dtype=np.int32)
+    X = np.array(
+        [
+            [0.000, 0.000, 0.000], [1.431, 1.108, 0.000], [-1.431, 1.108, 0.000],
+            [5.291, 0.567, 0.378], [4.700, -0.928, 0.378], [3.584, 1.880, 0.378],
+            [2.457, 4.913, -0.756], [1.700, 3.300, -0.756], [4.200, 4.500, -0.756],
+        ]
+    )
+    rng = np.random.default_rng(0)
+    c6 = rng.uniform(2.0, 15.0, (9, 9))
+    c6 = (c6 + c6.T) / 2
+    b1, b2, s9 = -0.31, 3.43, 1.0
+    vdw = pydispersion.vdw_radii_table()
+    frags = [range(0, 3), range(3, 6), range(6, 9)]
+    full = [(i, j, k) for i in range(9) for j in range(i) for k in range(j)]
+    cross = [(i, j, k) for i in frags[0] for j in frags[1] for k in frags[2]]
+
+    e = pydispersion.calculate_atm_energy(Z, X, c6, damping_function="TT")
+    assert np.isclose(e, _atm_tt_reference(Z, X, c6, full, b1, b2, s9, vdw), rtol=1e-12, atol=0)
+
+    import dispersion
+
+    pA, pB, pC = [np.array(f, dtype=np.int32) for f in frags]
+    e = dispersion.disp.disp_ATM_TT_trimer_nambe(Z, X, c6, pA, pB, pC, np.array([b1, b2, s9]))
+    assert np.isclose(e, _atm_tt_reference(Z, X, c6, cross, b1, b2, s9, vdw), rtol=1e-12, atol=0)
+
+    # per-element override, e.g. the O radius of 3.07 bohr quoted by Xie et al.
+    vdw_o = pydispersion.vdw_radii_table({8: 3.07})
+    assert vdw_o[8] == 3.07 and vdw[8] == 3.09
+    e = pydispersion.calculate_atm_energy(Z, X, c6, damping_function="TT", vdw_radii={8: 3.07})
+    assert np.isclose(e, _atm_tt_reference(Z, X, c6, full, b1, b2, s9, vdw_o), rtol=1e-12, atol=0)
+
+
+def test_qcel_2B():
+    # water trimer (Angstrom input)
+    qcel_trimer = qcel.models.Molecule.from_data(
+        """
+        O  0.000  0.000  0.000
+        H  0.757  0.587  0.000
+        H -0.757  0.587  0.000
+        --
+        O  2.800  0.300  0.200
+        H  3.300 -0.400  0.600
+        H  1.900  0.200  0.500
+        --
+        O  1.300  2.600 -0.400
+        H  0.900  1.800 -0.100
+        H  2.200  2.700  0.000
+        """
+    )
+    import dispersion
+
+    C6s, _, _ = pydispersion.qcel_mol_acquire_c6s(qcel_trimer)
+    pos = np.array(qcel_trimer.atomic_numbers, dtype=np.int32)
+    carts = np.array(qcel_trimer.geometry)
+    params = np.array([1.0, 1.61679827, 0.44959224, 3.35743605])
+
+    total = pydispersion.qcel_2B(qcel_trimer, intermolecular=False)
+    assert np.isclose(total, dispersion.disp.disp_2B(pos, carts, C6s, params), rtol=1e-12, atol=0)
+
+    # intermolecular part = total minus intra-fragment pairs (same C6s)
+    intra = 0.0
+    for f in range(3):
+        ix = np.arange(3 * f, 3 * f + 3)
+        intra += dispersion.disp.disp_2B(
+            pos[ix], np.ascontiguousarray(carts[ix]), np.ascontiguousarray(C6s[np.ix_(ix, ix)]), params
+        )
+    inter = pydispersion.qcel_2B(qcel_trimer)
+    assert inter < 0
+    assert np.isclose(inter, total - intra, rtol=1e-12, atol=0)
+
+    # legacy dict path ignores the unused 's9'
+    legacy = pydispersion.qcel_2B(
+        qcel_trimer,
+        paramaters={"s6": 1.0, "s8": 1.61679827, "a1": 0.44959224, "a2": 3.35743605, "s9": 1.0},
+    )
+    assert np.isclose(legacy, inter, rtol=1e-12, atol=0)
+
 
 if __name__ == "__main__":
     test_disp_ATM_CHG_trimer_nambe()
     test_disp_ATM_TT_trimer_nambe()
+    test_disp_ATM_TT_matches_reference()
+    test_qcel_2B()
+
+
+def test_qcel_mol_acquire_c6s_units(tmp_path, monkeypatch):
+    """qcel geometries are bohr; dftd4 reads Angstrom. The qcel route must give
+    the same C6s as calling acquire_c6s with the Angstrom coordinates directly
+    (9c7b197 divided by bohr2angstroms, so dftd4 saw a 3.57x larger molecule)."""
+    monkeypatch.chdir(tmp_path)  # dftd4 writes its json/xyz files to cwd
+    xyz_ang = np.array(
+        [
+            [0.000, 0.000, 0.000],
+            [0.757, 0.587, 0.000],
+            [-0.757, 0.587, 0.000],
+            [2.800, 0.300, 0.200],
+            [3.300, -0.400, 0.600],
+            [1.900, 0.200, 0.500],
+        ]
+    )
+    Z = np.array([8, 1, 1, 8, 1, 1])
+    mol = qcel.models.Molecule.from_data(
+        "\n".join(f"{qcel.periodictable.to_E(z)} {x:.6f} {y:.6f} {w:.6f}" for z, (x, y, w) in zip(Z, xyz_ang))
+    )
+    assert np.allclose(mol.geometry * qcel.constants.bohr2angstroms, xyz_ang, atol=1e-6)
+
+    C6s, C8s, C6s_ATM = pydispersion.qcel_mol_acquire_c6s(mol)
+    ref_C6s, ref_C8s, _, _, ref_C6s_ATM = pydispersion.acquire_c6s(Z, xyz_ang, 0)
+    assert np.allclose(C6s, ref_C6s, rtol=1e-6, atol=0)
+    assert np.allclose(C8s, ref_C8s, rtol=1e-6, atol=0)
+    assert np.allclose(C6s_ATM, ref_C6s_ATM, rtol=1e-6, atol=0)
+
+    # sensitivity: the old conversion gives clearly different C6s
+    bad_C6s, _, _, _, _ = pydispersion.acquire_c6s(Z, xyz_ang / qcel.constants.bohr2angstroms**2, 0)
+    assert not np.allclose(bad_C6s, ref_C6s, rtol=1e-3)

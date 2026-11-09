@@ -1,7 +1,10 @@
 #include "disp.hpp"
 #include "constants.hpp"
 #include <Eigen/Dense>
+#include <cmath>
 #include <iostream>
+#include <stdexcept>
+#include <string>
 #include <omp.h>
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
@@ -395,6 +398,65 @@ double triple_scale(int i, int j, int k) {
     };
   };
 };
+
+namespace {
+// Radii table indexed by atomic number (bohr). Empty -> constants::vdw_ls.
+// Validated up front because exceptions cannot leave an OpenMP region.
+const std::vector<double> &select_vdw_radii(const std::vector<double> &vdw_radii,
+                                            const Ref<VectorXi> &pos) {
+  const std::vector<double> &r =
+      vdw_radii.empty() ? constants::vdw_ls : vdw_radii;
+  for (int a = 0; a < pos.size(); a++) {
+    const int z = pos[a];
+    if (z < 1 || z >= (int)r.size() || !(r[z] > 0.0)) {
+      throw std::invalid_argument("no vdW radius for atomic number " +
+                                  std::to_string(z));
+    }
+  }
+  return r;
+}
+
+double dist2(const py::EigenDRef<MatrixXd> &carts, int a, int b) {
+  const double dx = carts(a, 0) - carts(b, 0);
+  const double dy = carts(a, 1) - carts(b, 1);
+  const double dz = carts(a, 2) - carts(b, 2);
+  return dx * dx + dy * dy + dz * dz;
+}
+
+// ATM energy of one atom triple with the product of three pairwise
+// Tang-Toennies f6 damping functions (Xie, Glick, Sherrill, JCP 158, 094110):
+//   f9 = f6(R_ij, b_ij) f6(R_ik, b_ik) f6(R_jk, b_jk)
+//   b_ij = b1 * (r_i^vdW + r_j^vdW) + b2   (paper: b1 = -0.31, b2 = 3.43)
+double atm_tt_triple(int i, int j, int k, const Ref<VectorXi> &pos,
+                     const py::EigenDRef<MatrixXd> &carts,
+                     const py::EigenDRef<MatrixXd> &C6s_ATM,
+                     const std::vector<double> &vdw, double b1, double b2,
+                     double s9) {
+  const double dis_ij = dist2(carts, i, j);
+  const double dis_ik = dist2(carts, i, k);
+  const double dis_jk = dist2(carts, j, k);
+  const double r2 = dis_ij * dis_ik * dis_jk;
+  if (r2 < 1e-8) {
+    return 0.0;
+  }
+  const double vdw_i = vdw[pos[i]], vdw_j = vdw[pos[j]], vdw_k = vdw[pos[k]];
+  const double f6_ij = f_n_TT(b1 * (vdw_i + vdw_j) + b2, std::sqrt(dis_ij), 6);
+  const double f6_ik = f_n_TT(b1 * (vdw_i + vdw_k) + b2, std::sqrt(dis_ik), 6);
+  const double f6_jk = f_n_TT(b1 * (vdw_j + vdw_k) + b2, std::sqrt(dis_jk), 6);
+  const double c9 =
+      -s9 * std::sqrt(std::abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)));
+  const double r1 = std::sqrt(r2);
+  const double r3 = r2 * r1;
+  const double r5 = r3 * r2;
+  const double ang = 0.375 * (dis_ij + dis_jk - dis_ik) *
+                         (dis_ij - dis_jk + dis_ik) *
+                         (-dis_ij + dis_jk + dis_ik) / r5 +
+                     1.0 / r3;
+  return -ang * c9 * triple_scale(i, j, k) * f6_ij * f6_ik * f6_jk;
+}
+} // namespace
+
+std::vector<double> default_vdw_radii() { return constants::vdw_ls; }
 
 void vals_for_SR(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                  py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params,
@@ -1408,69 +1470,22 @@ double disp_ATM_TT_trimer_nambe(Ref<VectorXi> pos,
                                 py::EigenDRef<MatrixXd> carts,
                                 py::EigenDRef<MatrixXd> C6s_ATM,
                                 Ref<VectorXi> pA, Ref<VectorXi> pB,
-                                Ref<VectorXi> pC, Ref<VectorXd> params) {
-  /* int lattice_points = 1; */
+                                Ref<VectorXi> pC, Ref<VectorXd> params,
+                                const std::vector<double> &vdw_radii) {
+  // params = [b1, b2, s9]
+  const double b1 = params[0], b2 = params[1], s9 = params[2];
+  const std::vector<double> &vdw = select_vdw_radii(vdw_radii, pos);
+  const int nA = pA.size(), nB = pB.size(), nC = pC.size();
   double energy = 0.0;
-  double r1, r2, r3, r5, dis_ij, dis_jk, dis_ik, triple, c9, fdmp,
-      ang;                                // private
-  int el1, el2, el3, i, j, k, n1, n2, n3; // private
-  double b1, b2, s9;                      // public
-  double vdw_i, vdw_j, vdw_k, b_ij, b_ik, b_jk, f6_ij, f6_ik,
-      f6_jk; // private
-
-  b1 = params[0];
-  b2 = params[1];
-  s9 = params[2];
-#pragma omp parallel for shared(                                               \
-        C6s_ATM, carts, params, pos, b1, b2,                                   \
-            s9) private(el1, el2, el3, i, j, k, n1, n2, n3, r1, r2, r3, r5,    \
-                            dis_ij, dis_jk, dis_ik, triple, c9, fdmp, ang,     \
-                            vdw_i, vdw_j, vdw_k) reduction(+ : energy)
-  for (n1 = 0; n1 < pA.size(); n1++) {
-    i = pA[n1];
-    el1 = pos[i];
-    vdw_i = constants::vdw_ls[el1];
-    for (n2 = 0; n2 < pB.size(); n2++) {
-      j = pB[n2];
-      el2 = pos[j];
-      vdw_j = constants::vdw_ls[el2];
-      b_ij = b1 * (vdw_i + vdw_j) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
-      dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
-               (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
-               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
-      f6_ij = f_n_TT(b_ij, pow(dis_ij, 0.5), 6);
-      for (n3 = 0; n3 < pC.size(); n3++) {
-        k = pC[n3];
-        el3 = pos[k];
-        vdw_k = constants::vdw_ls[el3];
-        b_ik = -b1 * (vdw_i + vdw_k) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
-        b_jk = -b1 * (vdw_j + vdw_k) + b2; // b_IJ = -0.33 (D_IJ) + 4.39
-        c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
-        triple = triple_scale(i, j, k);
-        dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
-                 (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
-                 (carts(i, 2) - carts(k, 2)) * (carts(i, 2) - carts(k, 2));
-        dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
-                 (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
-                 (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
-        f6_ik = f_n_TT(b_ik, pow(dis_ik, 0.5), 6);
-        f6_jk = f_n_TT(b_jk, pow(dis_jk, 0.5), 6);
-        r2 = dis_ij * dis_ik * dis_jk;
-        if (r2 < 1e-8) {
-          std::cout << "r2 too small" << std::endl;
-          continue;
-        };
-        r1 = pow(r2, 0.5);
-        r3 = r2 * r1;
-        r5 = r3 * r2;
-        ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
-                   (-dis_ij + dis_jk + dis_ik) / r5 +
-               1.0 / r3);
-        fdmp = f6_ij * f6_ik * f6_jk;
-        energy -= 6 * (ang * fdmp * c9 * triple / 6.0);
-      };
-    };
-  };
+#pragma omp parallel for collapse(2) reduction(+ : energy)
+  for (int n1 = 0; n1 < nA; n1++) {
+    for (int n2 = 0; n2 < nB; n2++) {
+      for (int n3 = 0; n3 < nC; n3++) {
+        energy += atm_tt_triple(pA[n1], pB[n2], pC[n3], pos, carts, C6s_ATM,
+                                vdw, b1, b2, s9);
+      }
+    }
+  }
   return energy;
 };
 
@@ -1732,64 +1747,22 @@ double disp_2B_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
 };
 
 double disp_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
-                   py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params) {
-  double energy = 0;
-  int n = pos.size();
-  double b3, b4, s9;
-  double r1, r2, r3, r5, dis_ij, dis_jk, dis_ik, triple, c9, fdmp,
-      ang;                    // private
-  int el1, el2, el3, i, j, k; // private
-  double vdw_i, vdw_j, vdw_k, b_ij, b_ik, b_jk, f6_ij, f6_ik,
-      f6_jk;      // private
-  b3 = params[2]; // -0.31
-  b4 = params[3]; // 3.43
-  s9 = params[4];
-
-#pragma omp parallel for shared(C6s_ATM, carts, params, pos) private(          \
-        el1, el2, el3, i, j, k, r1, r2, r3, r5, dis_ij, dis_jk, dis_ik,        \
-            triple, c9, fdmp, ang) reduction(+ : energy)
-  for (i = 0; i < n; i++) {
-    el1 = pos[i];
-    vdw_i = constants::vdw_ls[el1];
-    for (j = 0; j < i; j++) {
-      el2 = pos[j];
-      vdw_j = constants::vdw_ls[el2];
-      b_ij = b3 * (vdw_i + vdw_j) + b4; // b_IJ = -0.33 (D_IJ) + 4.39
-      dis_ij = (carts(i, 0) - carts(j, 0)) * (carts(i, 0) - carts(j, 0)) +
-               (carts(i, 1) - carts(j, 1)) * (carts(i, 1) - carts(j, 1)) +
-               (carts(i, 2) - carts(j, 2)) * (carts(i, 2) - carts(j, 2));
-      f6_ij = f_n_TT(b_ij, pow(dis_ij, 0.5), 6);
-      for (k = 0; k < j; k++) {
-        el3 = pos[k];
-        vdw_k = constants::vdw_ls[el3];
-        b_ik = -b3 * (vdw_i + vdw_k) + b4; // b_IJ = -0.33 (D_IJ) + 4.39
-        b_jk = -b3 * (vdw_k + vdw_j) + b4; // b_IJ = -0.33 (D_IJ) + 4.39
-        c9 = -s9 * pow(abs(C6s_ATM(i, j) * C6s_ATM(i, k) * C6s_ATM(j, k)), 0.5);
-        triple = triple_scale(i, j, k);
-        dis_ik = (carts(i, 0) - carts(k, 0)) * (carts(i, 0) - carts(k, 0)) +
-                 (carts(i, 1) - carts(k, 1)) * (carts(i, 1) - carts(k, 1)) +
-                 (carts(i, 2) - carts(k, 2)) * (carts(i, 2) - carts(k, 2));
-        dis_jk = (carts(j, 0) - carts(k, 0)) * (carts(j, 0) - carts(k, 0)) +
-                 (carts(j, 1) - carts(k, 1)) * (carts(j, 1) - carts(k, 1)) +
-                 (carts(j, 2) - carts(k, 2)) * (carts(j, 2) - carts(k, 2));
-        f6_ik = f_n_TT(b_ik, pow(dis_ik, 0.5), 6);
-        f6_jk = f_n_TT(b_jk, pow(dis_jk, 0.5), 6);
-        r2 = dis_ij * dis_ik * dis_jk;
-        if (r2 < 1e-8) {
-          std::cout << "r2 too small" << std::endl;
-          continue;
-        };
-        r1 = pow(r2, 0.5);
-        r3 = r2 * r1;
-        r5 = r3 * r2;
-        ang = (0.375 * (dis_ij + dis_jk - dis_ik) * (dis_ij - dis_jk + dis_ik) *
-                   (-dis_ij + dis_jk + dis_ik) / r5 +
-               1.0 / r3);
-        fdmp = f6_ij * f6_ik * f6_jk;
-        energy -= 6 * (ang * c9 * triple / 6.0) * fdmp;
-      };
-    };
-  };
+                   py::EigenDRef<MatrixXd> C6s_ATM, Ref<VectorXd> params,
+                   const std::vector<double> &vdw_radii) {
+  // params = [s6, s8, b1, b2, s9]; s6 and s8 are unused here
+  const double b1 = params[2], b2 = params[3], s9 = params[4];
+  const std::vector<double> &vdw = select_vdw_radii(vdw_radii, pos);
+  const int n = pos.size();
+  double energy = 0.0;
+#pragma omp parallel for schedule(dynamic) reduction(+ : energy)
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < i; j++) {
+      for (int k = 0; k < j; k++) {
+        energy +=
+            atm_tt_triple(i, j, k, pos, carts, C6s_ATM, vdw, b1, b2, s9);
+      }
+    }
+  }
   return energy;
 };
 
