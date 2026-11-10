@@ -118,6 +118,36 @@ PYBIND11_MODULE(dispersion, m) {
           py::arg("C10s"), py::arg("RCs"), py::arg("monAs"), py::arg("monBs"),
           py::arg("params"));
 
+  m_d.def("xdm_switch_pair", &disp::xdm_switch_pair, R"pbdoc(
+        One XDM pair energy (Eh) with an order-common switch centred at
+          R0 = s sqrt(C10/C8): form 0 rational ("XDM-op", w = p), 1 erf
+          (w = rate), 2 Fermi (w = d); c = fixed core as a fraction of Rc
+          (0 = none). form -1 is BJ with w = a1, s = a2 [Angstrom].
+        )pbdoc",
+          py::arg("form"), py::arg("r"), py::arg("c6"), py::arg("c8"),
+          py::arg("c10"), py::arg("rc"), py::arg("w"), py::arg("s"),
+          py::arg("c") = 0.0);
+
+  m_d.def("disp_2B_XDM_switch_inter", &disp::disp_2B_XDM_switch_inter, R"pbdoc(
+        Intermolecular XDM dispersion (Eh), pairs i in monAs, j in monBs, with
+          dimer C6/C8/C10/Rc matrices and the order-common switch of
+          xdm_switch_pair. params = [w, s] or [w, s, c]. XDM-op (survey
+          candidate): form 0, params [~5.0, ~0.96, 0.4].
+        )pbdoc",
+          py::arg("pos"), py::arg("carts"), py::arg("C6s"), py::arg("C8s"),
+          py::arg("C10s"), py::arg("RCs"), py::arg("monAs"), py::arg("monBs"),
+          py::arg("form"), py::arg("params"));
+
+  m_d.def("disp_2B_XDM_switch_pairs", &disp::disp_2B_XDM_switch_pairs, R"pbdoc(
+        Batched XDM pair sum for fitting: per-system energies (Eh) from
+          flattened pair arrays (r [bohr], C6, C8, C10, Rc, system index),
+          optionally weighted per pair (e.g. +1 dimer, -1 monomer pairs).
+          form -1 BJ [a1, a2 (Angstrom)], 0 rational, 1 erf, 2 Fermi.
+        )pbdoc",
+          py::arg("form"), py::arg("r"), py::arg("C6"), py::arg("C8"),
+          py::arg("C10"), py::arg("RC"), py::arg("sys"), py::arg("nsys"),
+          py::arg("weights"), py::arg("params"));
+
   m_d.def("disp_2B_XDM_inter_scaled", &disp::disp_2B_XDM_inter_scaled, R"pbdoc(
         calculate intermolecular XDM dispersion energy with scaled C6/C8/C10 terms.
           Uses dimer-level matrices with monA/monB indices.

@@ -1860,7 +1860,91 @@ double disp_2B_TT_ATM_CHG(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
   return energy;
 };
 
+// ---- XDM order-common switch damping (rational "XDM-op", erf, Fermi) ----
+double xdm_switch_pair(int form, double r, double c6, double c8, double c10,
+                       double rc, double w, double s, double c) {
+  const double ang_to_bohr = 1.8897261245650624;
+  double r2 = r * r, r6 = r2 * r2 * r2, r8 = r6 * r2, r10 = r8 * r2;
+  double f;
+  if (form == -1) { // BJ: w = a1, s = a2 [Angstrom]
+    double R0 = w * rc + s * ang_to_bohr;
+    double R2 = R0 * R0, R6 = R2 * R2 * R2, R8 = R6 * R2, R10 = R8 * R2;
+    return -(c6 / (r6 + R6) + c8 / (r8 + R8) + c10 / (r10 + R10));
+  }
+  double R0 = s * std::sqrt(c10 / c8);
+  double x = r / R0;
+  switch (form) {
+  case 0: { double xp = std::pow(x, w); f = xp / (1.0 + xp); break; }
+  case 1: f = 0.5 * (1.0 + std::erf(w * (x - 1.0) / std::sqrt(2.0))); break;
+  case 2: f = 1.0 / (1.0 + std::exp(-w * (x - 1.0))); break;
+  default: throw std::invalid_argument("xdm_switch_pair: form must be -1, 0, 1 or 2");
+  }
+  double k6 = 0.0, k8 = 0.0, k10 = 0.0;
+  if (c > 0.0) {
+    double k = c * rc, k2 = k * k;
+    k6 = k2 * k2 * k2; k8 = k6 * k2; k10 = k8 * k2;
+  }
+  return -f * (c6 / (r6 + k6) + c8 / (r8 + k8) + c10 / (r10 + k10));
+}
+
+static void switch_params(int form, Ref<VectorXd> params, double &w, double &s, double &c) {
+  if (params.size() < 2)
+    throw std::invalid_argument("XDM switch damping needs params [w, s] or [w, s, c]");
+  w = params[0];
+  s = params[1];
+  c = (form >= 0 && params.size() > 2) ? params[2] : 0.0;
+}
+
+double disp_2B_XDM_switch_inter(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                                py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C8s,
+                                py::EigenDRef<MatrixXd> C10s, py::EigenDRef<MatrixXd> RCs,
+                                Ref<VectorXi> monAs, Ref<VectorXi> monBs, int form,
+                                Ref<VectorXd> params) {
+  double w, s, c;
+  switch_params(form, params, w, s, c);
+  double energy = 0.0;
+  const int nA = monAs.size(), nB = monBs.size();
+#pragma omp parallel for reduction(+ : energy) if (nA * nB > 4096)
+  for (int A = 0; A < nA; A++) {
+    int i = monAs[A];
+    for (int B = 0; B < nB; B++) {
+      int j = monBs[B];
+      double r = (carts.row(i) - carts.row(j)).norm();
+      energy += xdm_switch_pair(form, r, C6s(i, j), C8s(i, j), C10s(i, j), RCs(i, j), w, s, c);
+    }
+  }
+  return energy;
+}
+
+VectorXd disp_2B_XDM_switch_pairs(int form, Ref<VectorXd> r, Ref<VectorXd> C6,
+                                  Ref<VectorXd> C8, Ref<VectorXd> C10, Ref<VectorXd> RC,
+                                  Ref<VectorXi> sys, int nsys, Ref<VectorXd> weights,
+                                  Ref<VectorXd> params) {
+  double w, s, c;
+  switch_params(form, params, w, s, c);
+  const long n = r.size();
+  if (C6.size() != n || C8.size() != n || C10.size() != n || RC.size() != n || sys.size() != n)
+    throw std::invalid_argument("disp_2B_XDM_switch_pairs: pair arrays differ in length");
+  const bool weighted = weights.size() > 0;
+  if (weighted && weights.size() != n)
+    throw std::invalid_argument("disp_2B_XDM_switch_pairs: weights must be empty or one per pair");
+  VectorXd e_pair(n);
+#pragma omp parallel for schedule(static)
+  for (long k = 0; k < n; k++) {
+    double e = xdm_switch_pair(form, r[k], C6[k], C8[k], C10[k], RC[k], w, s, c);
+    e_pair[k] = weighted ? weights[k] * e : e;
+  }
+  VectorXd out = VectorXd::Zero(nsys);
+  for (long k = 0; k < n; k++) {
+    if (sys[k] < 0 || sys[k] >= nsys)
+      throw std::out_of_range("disp_2B_XDM_switch_pairs: sys index out of range");
+    out[sys[k]] += e_pair[k];
+  }
+  return out;
+}
+
 } // namespace disp
+
 
 namespace d3 {
 double compute_BJ(Ref<VectorXd> params, py::EigenDRef<MatrixXd> d3data) {

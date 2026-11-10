@@ -183,6 +183,88 @@ def test_disp_2B_TT_C8_matches_D4_undamped():
         assert e_tt < 0
 
 
+def _xdm_switch_system():
+    Z = np.array([8, 1, 1, 7, 1, 1, 1], dtype=np.int32)
+    X = np.array(
+        [
+            [0.0, 0.0, 0.0], [1.43, 1.11, 0.0], [-1.43, 1.11, 0.0],
+            [5.6, 0.3, 0.4], [6.3, -1.4, 0.9], [6.4, 1.6, 1.3], [6.1, 0.8, -1.4],
+        ]
+    )
+    rng = np.random.default_rng(2)
+    sym = lambda m: (m + m.T) / 2
+    c6 = sym(rng.uniform(2.0, 20.0, (7, 7)))
+    c8 = sym(rng.uniform(50.0, 400.0, (7, 7)))
+    c10 = sym(rng.uniform(1e3, 1e4, (7, 7)))
+    rc = sym(rng.uniform(4.0, 7.0, (7, 7)))
+    return Z, X, c6, c8, c10, rc, np.arange(3, dtype=np.int32), np.arange(3, 7, dtype=np.int32)
+
+
+def _xdm_switch_numpy(form, X, c6, c8, c10, rc, A, B, w, s, c):
+    """Reference: damping_survey/grid_survey.py centre "C10/C8", constant width."""
+    from scipy.special import erf
+
+    ii, jj = (x.ravel() for x in np.meshgrid(A, B, indexing="ij"))
+    R = np.linalg.norm(X[ii] - X[jj], axis=1)
+    R0 = s * np.sqrt(c10[ii, jj] / c8[ii, jj])
+    f = {0: lambda: R**w / (R**w + R0**w),
+         1: lambda: 0.5 * (1 + erf(w / R0 * (R - R0) / np.sqrt(2))),
+         2: lambda: 1 / (1 + np.exp(-w / R0 * (R - R0)))}[form]()
+    e = 0.0
+    for n, C in ((6, c6), (8, c8), (10, c10)):
+        core = R**n / (R**n + (c * rc[ii, jj]) ** n) if c else 1.0
+        e += np.sum(f * core * C[ii, jj] / R**n)
+    return -e
+
+
+def test_disp_2B_XDM_switch_matches_numpy():
+    """Rational (XDM-op), erf and Fermi switches against an independent numpy sum."""
+    import dispersion
+
+    d = dispersion.disp
+    Z, X, c6, c8, c10, rc, A, B = _xdm_switch_system()
+    cases = [(0, 4.95, 0.959, 0.4), (0, 5.0, 0.96, 0.0), (1, 3.54, 0.973, 0.0),
+             (1, 3.51, 0.973, 0.4), (2, 6.10, 0.972, 0.4)]
+    for form, w, s, c in cases:
+        e = d.disp_2B_XDM_switch_inter(Z, X, c6, c8, c10, rc, A, B, form, np.array([w, s, c]))
+        ref = _xdm_switch_numpy(form, X, c6, c8, c10, rc, A, B, w, s, c)
+        assert np.isclose(e, ref, rtol=1e-12, atol=0), (form, e, ref)
+        assert e < 0
+    # two params means no core
+    e2 = d.disp_2B_XDM_switch_inter(Z, X, c6, c8, c10, rc, A, B, 0, np.array([5.0, 0.96]))
+    e3 = d.disp_2B_XDM_switch_inter(Z, X, c6, c8, c10, rc, A, B, 0, np.array([5.0, 0.96, 0.0]))
+    assert e2 == e3
+
+
+def test_disp_2B_XDM_switch_pairs_batched():
+    """Batched pair sum equals per-system kernels; form -1 reproduces BJ inter."""
+    import dispersion
+
+    d = dispersion.disp
+    Z, X, c6, c8, c10, rc, A, B = _xdm_switch_system()
+    ii, jj = (x.ravel() for x in np.meshgrid(A, B, indexing="ij"))
+    r = np.linalg.norm(X[ii] - X[jj], axis=1)
+    # the same dimer twice, second copy weighted by -0.5
+    cat = lambda v: np.concatenate([v, v])
+    pairs = [cat(r), cat(c6[ii, jj]), cat(c8[ii, jj]), cat(c10[ii, jj]), cat(rc[ii, jj])]
+    sys = np.repeat(np.array([0, 1], dtype=np.int32), r.size)
+    w = np.concatenate([np.ones(r.size), np.full(r.size, -0.5)])
+    for form, params in ((0, [4.95, 0.959, 0.4]), (1, [3.54, 0.973]), (2, [6.1, 0.972, 0.4])):
+        params = np.array(params)
+        one = d.disp_2B_XDM_switch_inter(Z, X, c6, c8, c10, rc, A, B, form, params)
+        got = d.disp_2B_XDM_switch_pairs(form, *pairs, sys, 2, w, params)
+        assert np.allclose(got, [one, -0.5 * one], rtol=1e-12, atol=0), (form, got, one)
+        got = d.disp_2B_XDM_switch_pairs(form, *pairs, sys, 2, np.array([]), params)
+        assert np.allclose(got, [one, one], rtol=1e-12, atol=0)
+    bj = np.array([0.9, 0.3])
+    e_bj = d.disp_2B_XDM_inter(Z, X, c6, c8, c10, rc, A, B, bj)
+    got = d.disp_2B_XDM_switch_pairs(-1, *pairs, sys, 2, np.array([]), bj)
+    assert np.allclose(got, [e_bj, e_bj], rtol=1e-12, atol=0)
+    assert np.isclose(d.xdm_switch_pair(-1, r[0], c6[0, 3], c8[0, 3], c10[0, 3], rc[0, 3], 0.9, 0.3),
+                      d.disp_2B_XDM_switch_pairs(-1, r[:1], *(np.array([m[0, 3]]) for m in (c6, c8, c10, rc)),
+                                                 np.zeros(1, dtype=np.int32), 1, np.array([]), bj)[0])
+
+
 def test_qcel_2B():
     # water trimer (Angstrom input)
     qcel_trimer = qcel.models.Molecule.from_data(

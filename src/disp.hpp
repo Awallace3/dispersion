@@ -257,7 +257,31 @@ double disp_2B_TT_ATM_TT(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
                          Ref<VectorXd> params, Ref<VectorXd> params_ATM);
 // END Tang-Toennies damping
 
+// XDM with an order-common switch centred at R_{8,10} = s sqrt(C10/C8)
+// (damping survey, A. Price 2026; "XDM-op" = rational form).
+//   form 0 rational ("XDM-op"): f = R^p / (R^p + R0^p),        params [p, s, c]
+//   form 1 erf:                 f = (1 + erf(w (R/R0 - 1)/sqrt2))/2, params [w, s, c]
+//   form 2 Fermi:               f = 1 / (1 + exp(-d (R/R0 - 1))),     params [d, s, c]
+// with R0 = s sqrt(C10/C8) and an optional fixed core c (fraction of Rc, 0 = none):
+//   E_ij = -f sum_n C_n / (R^n + (c Rc)^n),  n = 6, 8, 10   (Eh, bohr)
+double xdm_switch_pair(int form, double r, double c6, double c8, double c10,
+                       double rc, double w, double s, double c);
+
+double disp_2B_XDM_switch_inter(Ref<VectorXi> pos, py::EigenDRef<MatrixXd> carts,
+                                py::EigenDRef<MatrixXd> C6s, py::EigenDRef<MatrixXd> C8s,
+                                py::EigenDRef<MatrixXd> C10s, py::EigenDRef<MatrixXd> RCs,
+                                Ref<VectorXi> monAs, Ref<VectorXi> monBs, int form,
+                                Ref<VectorXd> params);
+
+// Batched pair sum for fitting: per-system energies (Eh) from flattened pair
+// arrays. form -1 is BJ (params [a1, a2 (Angstrom)]); weights may be empty.
+VectorXd disp_2B_XDM_switch_pairs(int form, Ref<VectorXd> r, Ref<VectorXd> C6,
+                                  Ref<VectorXd> C8, Ref<VectorXd> C10, Ref<VectorXd> RC,
+                                  Ref<VectorXi> sys, int nsys, Ref<VectorXd> weights,
+                                  Ref<VectorXd> params);
+
 } // namespace disp
+
   //
 
 namespace d3 {
